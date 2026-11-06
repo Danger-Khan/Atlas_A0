@@ -1,0 +1,15 @@
+{
+  "author": "Imaad Ullah Khan Yameen",
+  "email": "yameenimaad@gmail.com",
+  "license": "This code is not for sale",
+  "jobs": [
+    {"level": "country", "formats": ["png", "tiff"]},
+    {"level": "province", "region": "kpk", "formats": ["png", "tiff"]},
+    {"level": "district", "region": "Swat", "province": "kpk",
+     "types": ["street", "landuse", "satellite"], "formats": ["png", "tiff"]},
+    {"level": "city", "region": "Peshawar", "types": ["street", "water", "buildings"],
+     "formats": ["png", "tiff"], "dpi": 200,
+     "layers": [{"path": "my_sites.shp", "name": "Proposed sites", "color": "#d62728", "alpha": 0.8, "marker": "triangle", "size_mm": 8, "label_field": "NAME"}],
+     "layout": {"north_style": "compass", "scale_style": "double", "legend_style": "compact"}}
+  ]
+}

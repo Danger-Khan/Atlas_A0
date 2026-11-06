@@ -1,0 +1,14 @@
+# Author: Imaad Ullah Khan Yameen
+# Email: yameenimaad@gmail.com
+# This code is not for sale.
+osmnx>=1.9
+geopandas
+matplotlib
+shapely
+pillow
+numpy
+
+# optional
+contextily   # satellite / topo map types
+rasterio     # embed georeferencing inside the TIFF (otherwise .tfw/.prj sidecars are used)
+openpyxl     # Excel (.xlsx) receptor export
