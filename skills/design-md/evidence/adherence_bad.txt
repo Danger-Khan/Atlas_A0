@@ -1,0 +1,28 @@
+Author: Imaad Ullah Khan Yameen
+Email: yameenimaad@gmail.com
+This code is not for sale.
+
+$ python tools/check_adherence.py examples/geo-portal/site-bad --design examples/geo-portal/DESIGN.md
+# exit code: 1 (expected 1)
+
+design-md adherence report
+  spec   : examples/geo-portal/DESIGN.md (10 colours, 2 fonts, base 4 px)
+  scanned: 2 file(s)
+  ERROR   examples/geo-portal/site-bad/index.html:7 [color] #123 is not in DESIGN.md (nearest color.text #13242b)
+  ERROR   examples/geo-portal/site-bad/index.html:7 [color] #eee is not in DESIGN.md (nearest color.bg #f4f7f8)
+  ERROR   examples/geo-portal/site-bad/index.html:7 [font] font 'comic sans ms' is not in DESIGN.md (allowed: ibm plex mono, source sans 3)
+  ERROR   examples/geo-portal/site-bad/index.html:9 [color] #ff00aa is not in DESIGN.md (nearest color.risk-high #b3261e)
+  ERROR   examples/geo-portal/site-bad/index.html:9 [color] #7928ca is not in DESIGN.md (nearest color.text-muted #4a5e68)
+  WARNING examples/geo-portal/site-bad/index.html:10 [spacing] 13px is not a multiple of space.base (4px)
+  WARNING examples/geo-portal/site-bad/index.html:11 [spacing] 22px is not a multiple of space.base (4px)
+  WARNING examples/geo-portal/site-bad/index.html:12 [radius] border-radius 7px is not in radius.* tokens (4, 8, 12)
+  ERROR   examples/geo-portal/site-bad/index.html:13 [color] rgb(10, 200, 30) is not in DESIGN.md (nearest color.risk-low #2e7d4f)
+  WARNING examples/geo-portal/site-bad/index.html:15 [spacing] 10px is not a multiple of space.base (4px)
+  WARNING examples/geo-portal/site-bad/index.html:15 [spacing] 18px is not a multiple of space.base (4px)
+  ERROR   examples/geo-portal/site-bad/index.html:22 [color] #bada55 is not in DESIGN.md (nearest color.risk-medium #f2c14e)
+  ERROR   examples/geo-portal/site-bad/index.html:22 [font] font 'papyrus' is not in DESIGN.md (allowed: ibm plex mono, source sans 3)
+  ERROR   examples/geo-portal/site-bad/widget.jsx:2 [color] #00ff00 is not in DESIGN.md (nearest color.risk-low #2e7d4f)
+  ERROR   examples/geo-portal/site-bad/widget.jsx:2 [color] #FFD700 is not in DESIGN.md (nearest color.risk-medium #f2c14e)
+  ERROR   examples/geo-portal/site-bad/widget.jsx:2 [color] #FF0000 is not in DESIGN.md (nearest color.risk-high #b3261e)
+  ERROR   examples/geo-portal/site-bad/widget.jsx:4 [font] font 'inter' is not in DESIGN.md (allowed: ibm plex mono, source sans 3)
+result: FAIL (12 error(s), 5 warning(s))

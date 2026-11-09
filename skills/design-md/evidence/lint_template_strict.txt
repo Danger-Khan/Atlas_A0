@@ -1,0 +1,16 @@
+Author: Imaad Ullah Khan Yameen
+Email: yameenimaad@gmail.com
+This code is not for sale.
+
+$ python tools/lint_design.py templates/DESIGN.template.md --strict
+# exit code: 1 (expected 1)
+
+design-md lint: templates/DESIGN.template.md
+  info    sections found: 10 headings
+  info    tokens: 7 colours, 2 font stacks, space.base=4, 2 radii
+  info    contrast ok: color.text on color.bg = 18.88:1 (min 4.5)
+  info    contrast ok: color.text on color.surface = 17.32:1 (min 4.5)
+  info    contrast ok: color.text-muted on color.surface = 6.84:1 (min 4.5)
+  info    contrast ok: color.primary-contrast on color.primary = 6.70:1 (min 4.5)
+  WARN    16 TODO placeholder(s) still in the file
+result: FAIL (0 error(s), 1 warning(s))

@@ -1,0 +1,98 @@
+{
+  "generated_utc": "2026-11-06 18:18:48Z",
+  "python": "3.13.18",
+  "platform": "Linux-6.18.44-fc-v242-x86_64-with-glibc2.39",
+  "all_runs_match_expectation": true,
+  "runs": [
+    {
+      "file": "evidence/test_results.txt",
+      "description": "Unit test suite",
+      "command": "python -m unittest discover -s tests -v",
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "match": true,
+      "proves": "All tool behaviours (contrast maths, parsing, lint rules, scanning, CLI exit codes) pass.",
+      "sha256": "7614450a523974ca5b293d99c23b9f2b83b566f93fa4a63179995738af5502ce"
+    },
+    {
+      "file": "evidence/lint_example.txt",
+      "description": "Lint the worked example",
+      "command": "python tools/lint_design.py examples/geo-portal/DESIGN.md",
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "match": true,
+      "proves": "A complete DESIGN.md passes with zero warnings and every contrast pair verified.",
+      "sha256": "4c9130b0071e9663026ad874a836e688cf22921d8edd7630507d3b827ae16d60"
+    },
+    {
+      "file": "evidence/lint_template.txt",
+      "description": "Lint the blank template",
+      "command": "python tools/lint_design.py templates/DESIGN.template.md",
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "match": true,
+      "proves": "The template is structurally valid; TODO placeholders surface as warnings.",
+      "sha256": "2b3c27160bf72632ca61b242334c05dc009f52dc1ecb3cf97ed424ef3ce90a82"
+    },
+    {
+      "file": "evidence/lint_template_strict.txt",
+      "description": "Lint the template with --strict",
+      "command": "python tools/lint_design.py templates/DESIGN.template.md --strict",
+      "expected_exit": 1,
+      "actual_exit": 1,
+      "match": true,
+      "proves": "--strict turns placeholder warnings into a failing exit code (use in CI).",
+      "sha256": "ad252234c7e806eb4e255a0aa9d92c749798ddddac7327e3238c3274a2e2153d"
+    },
+    {
+      "file": "evidence/lint_broken.txt",
+      "description": "Lint a deliberately broken spec",
+      "command": "python tools/lint_design.py tests/fixtures/DESIGN.broken.md",
+      "expected_exit": 1,
+      "actual_exit": 1,
+      "match": true,
+      "proves": "Missing sections, invalid hex, unknown pair token and low contrast are all caught.",
+      "sha256": "06294eae1e14737068b5e03e39a0df7496bcede7d36e155b94193bfa5f50a34c"
+    },
+    {
+      "file": "evidence/adherence_good.txt",
+      "description": "Scan the compliant sample site",
+      "command": "python tools/check_adherence.py examples/geo-portal/site-good --design examples/geo-portal/DESIGN.md",
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "match": true,
+      "proves": "Code that uses only token colours, fonts and on-grid spacing passes (case and notation differences allowed).",
+      "sha256": "5ae238cc7fba1ee78e9d5322de86d0c84830c032e5883aa7721be6692b992a9e"
+    },
+    {
+      "file": "evidence/adherence_bad.txt",
+      "description": "Scan the non-compliant sample site",
+      "command": "python tools/check_adherence.py examples/geo-portal/site-bad --design examples/geo-portal/DESIGN.md",
+      "expected_exit": 1,
+      "actual_exit": 1,
+      "match": true,
+      "proves": "Off-palette colours, rgb() literals, foreign fonts, off-grid spacing and odd radii are reported with file and line.",
+      "sha256": "e8c9800bbf751f23f0710b107e1eb463c6a77bec513a04c53d86b7f09d5e2a9e"
+    },
+    {
+      "file": "evidence/adherence_bad.json",
+      "description": "Same scan, JSON output",
+      "command": "python tools/check_adherence.py examples/geo-portal/site-bad --design examples/geo-portal/DESIGN.md --json",
+      "expected_exit": 1,
+      "actual_exit": 1,
+      "match": true,
+      "proves": "Machine-readable findings for CI annotations.",
+      "sha256": "2df03a05ea7ca0dd345db919176ee5d34af05204ece8068dbc4b911c30703922"
+    },
+    {
+      "file": "evidence/extract_good.txt",
+      "description": "Extract tokens from the compliant site",
+      "command": "python tools/extract_tokens.py examples/geo-portal/site-good",
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "match": true,
+      "proves": "Bootstrapping a token block from existing code works and lists colours by frequency.",
+      "sha256": "a5393d349a5836907ae1a8a0a5f85005b8f79d4cdf8b832f83f0b5b981b87e8f"
+    }
+  ]
+}

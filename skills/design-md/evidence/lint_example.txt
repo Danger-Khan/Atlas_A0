@@ -1,0 +1,19 @@
+Author: Imaad Ullah Khan Yameen
+Email: yameenimaad@gmail.com
+This code is not for sale.
+
+$ python tools/lint_design.py examples/geo-portal/DESIGN.md
+# exit code: 0 (expected 0)
+
+design-md lint: examples/geo-portal/DESIGN.md
+  info    sections found: 10 headings
+  info    tokens: 10 colours, 2 font stacks, space.base=4, 3 radii
+  info    contrast ok: color.text on color.bg = 14.83:1 (min 4.5)
+  info    contrast ok: color.text on color.surface = 15.97:1 (min 4.5)
+  info    contrast ok: color.text-muted on color.surface = 6.79:1 (min 4.5)
+  info    contrast ok: color.primary on color.surface = 6.63:1 (min 4.5)
+  info    contrast ok: color.primary-contrast on color.primary = 6.63:1 (min 4.5)
+  info    contrast ok: color.surface on color.risk-low = 5.05:1 (min 4.5)
+  info    contrast ok: color.text on color.risk-medium = 9.52:1 (min 4.5)
+  info    contrast ok: color.surface on color.risk-high = 6.54:1 (min 4.5)
+result: PASS (0 error(s), 0 warning(s))

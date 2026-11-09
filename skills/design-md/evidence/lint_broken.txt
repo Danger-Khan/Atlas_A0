@@ -1,0 +1,24 @@
+Author: Imaad Ullah Khan Yameen
+Email: yameenimaad@gmail.com
+This code is not for sale.
+
+$ python tools/lint_design.py tests/fixtures/DESIGN.broken.md
+# exit code: 1 (expected 1)
+
+design-md lint: tests/fixtures/DESIGN.broken.md
+  info    sections found: 4 headings
+  info    tokens: 3 colours, 0 font stacks, space.base=None, 0 radii
+  ERROR   missing section: components
+  ERROR   missing section: layout & spacing
+  ERROR   missing section: depth & elevation
+  ERROR   missing section: do's and don'ts
+  ERROR   missing section: responsive behavior
+  ERROR   missing section: agent prompt guide
+  ERROR   line 12: color.primary is not a #rgb/#rrggbb colour: '#12345'
+  ERROR   line 14: font.sans names no concrete font: 'system-ui, sans-serif'
+  ERROR   required token missing or invalid: color.primary
+  ERROR   no font.* token declared (e.g. font.sans = Source Sans 3, system-ui, sans-serif)
+  ERROR   space.base token missing (e.g. space.base = 4)
+  ERROR   line 15: contrast color.text on color.bg = 1.61:1, needs 4.5:1
+  ERROR   line 16: pair references unknown token(s): color.missing
+result: FAIL (13 error(s), 0 warning(s))

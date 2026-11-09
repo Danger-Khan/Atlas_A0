@@ -1,0 +1,52 @@
+Author: Imaad Ullah Khan Yameen
+Email: yameenimaad@gmail.com
+This code is not for sale.
+
+$ python -m unittest discover -s tests -v
+# exit code: 0 (expected 0)
+
+test_allow_lists (test_designmd.Adherence.test_allow_lists) ... ok
+test_anchors_urls_and_line_starts_are_not_colours (test_designmd.Adherence.test_anchors_urls_and_line_starts_are_not_colours) ... ok
+test_bad_site_findings (test_designmd.Adherence.test_bad_site_findings) ... ok
+test_cli_exit_codes (test_designmd.Adherence.test_cli_exit_codes) ... ok
+test_good_site_has_no_findings (test_designmd.Adherence.test_good_site_has_no_findings) ... ok
+test_skips_node_modules_and_design_md_itself (test_designmd.Adherence.test_skips_node_modules_and_design_md_itself) ... ok
+test_small_and_zero_spacing_tolerated (test_designmd.Adherence.test_small_and_zero_spacing_tolerated) ... ok
+test_strict_fails_on_warnings_only (test_designmd.Adherence.test_strict_fails_on_warnings_only) ... ok
+test_token_colours_pass_in_any_notation (test_designmd.Adherence.test_token_colours_pass_in_any_notation) ... ok
+test_tolerance_accepts_near_miss (test_designmd.Adherence.test_tolerance_accepts_near_miss) ... ok
+test_unknown_colour_suggests_nearest_token (test_designmd.Adherence.test_unknown_colour_suggests_nearest_token) ... ok
+test_var_and_generic_fonts_are_allowed (test_designmd.Adherence.test_var_and_generic_fonts_are_allowed) ... ok
+test_black_on_white_is_21 (test_designmd.ColourMaths.test_black_on_white_is_21) ... ok
+test_contrast_is_symmetric (test_designmd.ColourMaths.test_contrast_is_symmetric) ... ok
+test_font_names_drop_generics_and_quotes (test_designmd.ColourMaths.test_font_names_drop_generics_and_quotes) ... ok
+test_known_value_grey_777_on_white (test_designmd.ColourMaths.test_known_value_grey_777_on_white) ... ok
+test_normalize_hex (test_designmd.ColourMaths.test_normalize_hex) ... ok
+test_same_colour_is_1 (test_designmd.ColourMaths.test_same_colour_is_1) ... ok
+test_extracted_block_parses_back (test_designmd.Extractor.test_extracted_block_parses_back) ... ok
+test_extracts_frequency_ordered_block (test_designmd.Extractor.test_extracts_frequency_ordered_block) ... ok
+test_font_case_preserved_and_base_stays_4_on_4px_grid (test_designmd.Extractor.test_font_case_preserved_and_base_stays_4_on_4px_grid) ... ok
+test_broken_fixture_reports_each_defect (test_designmd.Linter.test_broken_fixture_reports_each_defect) ... ok
+test_cli_exit_codes (test_designmd.Linter.test_cli_exit_codes) ... ok
+test_cli_json_output_is_valid (test_designmd.Linter.test_cli_json_output_is_valid) ... ok
+test_duplicate_colours_warn_only_within_one_family (test_designmd.Linter.test_duplicate_colours_warn_only_within_one_family) ... ok
+test_example_passes_with_no_warnings (test_designmd.Linter.test_example_passes_with_no_warnings) ... ok
+test_per_pair_minimum_overrides_default (test_designmd.Linter.test_per_pair_minimum_overrides_default) ... ok
+test_removing_a_section_is_an_error (test_designmd.Linter.test_removing_a_section_is_an_error) ... ok
+test_template_has_no_errors_but_warns_about_todo (test_designmd.Linter.test_template_has_no_errors_but_warns_about_todo) ... ok
+test_docstrings_help_text_and_partial_strings_are_ignored (test_designmd.PythonScanning.test_docstrings_help_text_and_partial_strings_are_ignored) ... ok
+test_extractor_reads_python (test_designmd.PythonScanning.test_extractor_reads_python) ... ok
+test_font_keywords_checked (test_designmd.PythonScanning.test_font_keywords_checked) ... ok
+test_padding_keywords_and_constants (test_designmd.PythonScanning.test_padding_keywords_and_constants) ... ok
+test_syntax_error_is_a_warning_not_a_crash (test_designmd.PythonScanning.test_syntax_error_is_a_warning_not_a_crash) ... ok
+test_token_colours_pass (test_designmd.PythonScanning.test_token_colours_pass) ... ok
+test_unknown_colour_literal_is_flagged_with_nearest (test_designmd.PythonScanning.test_unknown_colour_literal_is_flagged_with_nearest) ... ok
+test_bad_lines_are_reported (test_designmd.SpecParsing.test_bad_lines_are_reported) ... ok
+test_duplicate_token_reported (test_designmd.SpecParsing.test_duplicate_token_reported) ... ok
+test_example_parses_cleanly (test_designmd.SpecParsing.test_example_parses_cleanly) ... ok
+test_headings_inside_code_fences_are_ignored (test_designmd.SpecParsing.test_headings_inside_code_fences_are_ignored) ... ok
+
+----------------------------------------------------------------------
+Ran 40 tests in 0.406s
+
+OK

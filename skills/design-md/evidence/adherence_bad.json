@@ -1,0 +1,131 @@
+$ python tools/check_adherence.py examples/geo-portal/site-bad --design examples/geo-portal/DESIGN.md --json
+# exit code: 1 (expected 1)
+
+{
+  "design": "examples/geo-portal/DESIGN.md",
+  "files": 2,
+  "status": "FAIL",
+  "errors": 12,
+  "warnings": 5,
+  "findings": [
+    {
+      "file": "examples/geo-portal/site-bad/index.html",
+      "line": 7,
+      "severity": "error",
+      "kind": "color",
+      "message": "#123 is not in DESIGN.md (nearest color.text #13242b)"
+    },
+    {
+      "file": "examples/geo-portal/site-bad/index.html",
+      "line": 7,
+      "severity": "error",
+      "kind": "color",
+      "message": "#eee is not in DESIGN.md (nearest color.bg #f4f7f8)"
+    },
+    {
+      "file": "examples/geo-portal/site-bad/index.html",
+      "line": 7,
+      "severity": "error",
+      "kind": "font",
+      "message": "font 'comic sans ms' is not in DESIGN.md (allowed: ibm plex mono, source sans 3)"
+    },
+    {
+      "file": "examples/geo-portal/site-bad/index.html",
+      "line": 9,
+      "severity": "error",
+      "kind": "color",
+      "message": "#ff00aa is not in DESIGN.md (nearest color.risk-high #b3261e)"
+    },
+    {
+      "file": "examples/geo-portal/site-bad/index.html",
+      "line": 9,
+      "severity": "error",
+      "kind": "color",
+      "message": "#7928ca is not in DESIGN.md (nearest color.text-muted #4a5e68)"
+    },
+    {
+      "file": "examples/geo-portal/site-bad/index.html",
+      "line": 10,
+      "severity": "warning",
+      "kind": "spacing",
+      "message": "13px is not a multiple of space.base (4px)"
+    },
+    {
+      "file": "examples/geo-portal/site-bad/index.html",
+      "line": 11,
+      "severity": "warning",
+      "kind": "spacing",
+      "message": "22px is not a multiple of space.base (4px)"
+    },
+    {
+      "file": "examples/geo-portal/site-bad/index.html",
+      "line": 12,
+      "severity": "warning",
+      "kind": "radius",
+      "message": "border-radius 7px is not in radius.* tokens (4, 8, 12)"
+    },
+    {
+      "file": "examples/geo-portal/site-bad/index.html",
+      "line": 13,
+      "severity": "error",
+      "kind": "color",
+      "message": "rgb(10, 200, 30) is not in DESIGN.md (nearest color.risk-low #2e7d4f)"
+    },
+    {
+      "file": "examples/geo-portal/site-bad/index.html",
+      "line": 15,
+      "severity": "warning",
+      "kind": "spacing",
+      "message": "10px is not a multiple of space.base (4px)"
+    },
+    {
+      "file": "examples/geo-portal/site-bad/index.html",
+      "line": 15,
+      "severity": "warning",
+      "kind": "spacing",
+      "message": "18px is not a multiple of space.base (4px)"
+    },
+    {
+      "file": "examples/geo-portal/site-bad/index.html",
+      "line": 22,
+      "severity": "error",
+      "kind": "color",
+      "message": "#bada55 is not in DESIGN.md (nearest color.risk-medium #f2c14e)"
+    },
+    {
+      "file": "examples/geo-portal/site-bad/index.html",
+      "line": 22,
+      "severity": "error",
+      "kind": "font",
+      "message": "font 'papyrus' is not in DESIGN.md (allowed: ibm plex mono, source sans 3)"
+    },
+    {
+      "file": "examples/geo-portal/site-bad/widget.jsx",
+      "line": 2,
+      "severity": "error",
+      "kind": "color",
+      "message": "#00ff00 is not in DESIGN.md (nearest color.risk-low #2e7d4f)"
+    },
+    {
+      "file": "examples/geo-portal/site-bad/widget.jsx",
+      "line": 2,
+      "severity": "error",
+      "kind": "color",
+      "message": "#FFD700 is not in DESIGN.md (nearest color.risk-medium #f2c14e)"
+    },
+    {
+      "file": "examples/geo-portal/site-bad/widget.jsx",
+      "line": 2,
+      "severity": "error",
+      "kind": "color",
+      "message": "#FF0000 is not in DESIGN.md (nearest color.risk-high #b3261e)"
+    },
+    {
+      "file": "examples/geo-portal/site-bad/widget.jsx",
+      "line": 4,
+      "severity": "error",
+      "kind": "font",
+      "message": "font 'inter' is not in DESIGN.md (allowed: ibm plex mono, source sans 3)"
+    }
+  ]
+}

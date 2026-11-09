@@ -355,3 +355,28 @@ def test_dpi_limits_cli_and_api(makers, tmp_path, capsys):
     assert cli.main(["Peshawar", "--dpi", "500", "--dry-run"]) == 0
     out = capsys.readouterr().out
     assert "16555 x 23405" in out and "download about" in out
+
+
+def test_about_shows_version_and_security(capsys):
+    from atlasa0 import __version__, cli
+    assert cli.main(["--about"]) == 0
+    out = capsys.readouterr().out
+    assert f"AtlasA0 {__version__}" in out and "SECURITY.md" in out
+
+
+def test_security_policy_matches_version():
+    import os
+    from atlasa0 import __version__
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    text = open(os.path.join(root, "SECURITY.md"), encoding="utf-8").read()
+    major_minor = ".".join(__version__.split(".")[:2])
+    assert f"| {major_minor}.x" in text and "yameenimaad@gmail.com" in text
+
+
+def test_cli_paper_estimate_and_validation(capsys):
+    assert cli.main(["Peshawar", "--paper", "A3", "--dpi", "300", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "Estimate: A3 3508 x 4961 px" in out or "Estimate: A3 " in out
+    with pytest.raises(SystemExit) as e:
+        cli.main(["Peshawar", "--paper", "A9", "--dry-run"])
+    assert e.value.code == 2

@@ -1,0 +1,11 @@
+Author: Imaad Ullah Khan Yameen
+Email: yameenimaad@gmail.com
+This code is not for sale.
+
+$ python tools/check_adherence.py examples/geo-portal/site-good --design examples/geo-portal/DESIGN.md
+# exit code: 0 (expected 0)
+
+design-md adherence report
+  spec   : examples/geo-portal/DESIGN.md (10 colours, 2 fonts, base 4 px)
+  scanned: 2 file(s)
+result: PASS (0 error(s), 0 warning(s))

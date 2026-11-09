@@ -38,5 +38,9 @@ OSM data is indicative; boundaries must be verified against Survey of Pakistan f
 - Layers: `--layer "file.shp;name=Sites;color=#d62728;alpha=0.6;marker=triangle;size_mm=8;label_field=NAME;fit=1"` (repeat). Types: shp, geojson, gpkg, kml, gml, csv (lon/lat). Python: `layers=[{...}]`.
 - Styles: `--legend-style box|compact|minimal|horizontal`, `--north-style arrow|classic|compass|circle`, `--scale-style bar|line|double|ratio`, `--scale-units km|mi|m`, positions `--legend-pos/--north-pos/--scale-pos` (no two at the same place), `--text-label "Text@lon,lat;size=50"`. `--list-styles` shows everything.
 - Own file name: `--name "Map_{region}_{date}"` (default is automatic).
+- Paper: `--paper A3` (A0 default; A1-A4 or `500x700` mm); dpi is the print resolution on that paper; text shrinks with the paper, so prefer A3+ for dense maps.
+- Preview first: `--preview` (50 dpi PNG, `_preview` name) before a long A0 run; the download is cached for the real run.
+- Rasters: `--layer "ndvi.tif;cmap=RdYlGn;vmin=0;vmax=0.8;alpha=0.8"` or `placement=basemap` (needs rasterio; never run against a real GeoTIFF in the build environment).
+- Choropleth (province map -> districts, country map -> provinces): `--choropleth "data.csv;name_col=District;value_col=Pop;classes=5;palette=YlOrRd;title=Population;show_values=1"`; read the log for unmatched names.
 - Check a layer's CRS if features land in the wrong place (default EPSG:4326, set `crs=` otherwise).
 - Header on every file: Author Imaad Ullah Khan Yameen, yameenimaad@gmail.com, not for sale.

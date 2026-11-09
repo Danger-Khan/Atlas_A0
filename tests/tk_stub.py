@@ -71,6 +71,16 @@ class _W:
         pass
 
 
+class _Scale(_W):
+    """Like real Tk 8.6.13+: set() runs the slider's command straight away (this exposed a build-order bug)."""
+
+    def set(self, v):
+        self._val = v
+        cmd = self._cfg.get("command")
+        if cmd:
+            cmd(v)
+
+
 class _Listbox(_W):
     _is_list = True
 
@@ -92,8 +102,9 @@ def install():
     cc.askcolor = lambda **k: (None, "#123456")
     tk.Text, tk.Listbox, tk.Tk = _W, _Listbox, _W
     for n in ("Frame", "LabelFrame", "Label", "Button", "Checkbutton", "Radiobutton", "Entry", "Combobox", "Notebook",
-              "Progressbar", "PanedWindow", "Scale"):
+              "Progressbar", "PanedWindow"):
         setattr(ttk, n, _W)
+    ttk.Scale = _Scale
     fd.askdirectory = fd.askopenfilename = fd.asksaveasfilename = lambda **k: ""
     mb.showinfo = mb.showwarning = mb.showerror = lambda *a, **k: None
     mb.calls = []

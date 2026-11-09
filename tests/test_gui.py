@@ -3,6 +3,7 @@
 # This code is not for sale.
 """GUI logic (toolkit-free controller + runner) and the Tk panel's wiring through a stub toolkit."""
 import json
+import os
 import threading
 import time
 
@@ -520,3 +521,33 @@ def test_panel_draw_order_buttons(panel):
     assert p.get_state().draw_order.index("water") > p.get_state().draw_order.index("boundaries")
     p._reset_order()
     assert p.get_state().draw_order == list(mod.core.describe_options()["default_draw_order"])
+
+
+def test_estimate_flags_assumed_defaults():
+    from atlasa0 import gui_core as c
+    s = c.FormState(cities=["Peshawar"], map_types=[], formats=[])
+    e = c.estimate(s)
+    assert e["assumed_defaults"] and "nothing ticked" in c.estimate_text(e)
+    e2 = c.estimate(c.FormState(cities=["Peshawar"]))
+    assert not e2["assumed_defaults"] and "nothing ticked" not in c.estimate_text(e2)
+
+
+def test_make_maps_bar_is_pinned_to_the_bottom_and_packed_before_the_tabs():
+    """Regression: on a short screen the notebook (expand=True) pushed the Make maps bar out of view."""
+    import re
+    src = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "atlasa0", "gui_tk.py"), encoding="utf-8").read()
+    body = src[src.index("    def _build(self):"):src.index("    def _tab_where(self, nb):")]
+    bar_pack = body.index('bar.pack(side="bottom"')
+    nb_pack = body.index('nb.pack(side="top"')
+    assert bar_pack < nb_pack
+    assert 'self.run_btn = self._btn(bar, "Make maps"' in body
+    assert "Control-Return" in src and "winfo_screenheight" in src
+
+
+def test_panel_builds_when_the_slider_calls_back_during_construction(panel):
+    """Regression (Python 3.12 / newer Tk): Scale.set() fired _dpi_slid before dpi_lbl existed -> AttributeError."""
+    mod, p = panel
+    assert p.dpi_lbl is not None
+    p._dpi_slid("300")
+    assert p.v["dpi"].get() == 300

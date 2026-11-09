@@ -1,0 +1,21 @@
+Author: Imaad Ullah Khan Yameen
+Email: yameenimaad@gmail.com
+This code is not for sale.
+
+$ python tools/extract_tokens.py examples/geo-portal/site-good
+# exit code: 0 (expected 0)
+
+```design-tokens
+// Proposed by extract_tokens.py from 2 file(s). Rename colours to roles by hand.
+color.c1 = #FFFFFF   // used 3 time(s)
+color.c2 = #13242B   // used 2 time(s)
+color.c3 = #F2C14E   // used 2 time(s)
+color.c4 = #F4F7F8   // used 1 time(s)
+color.c5 = #D3DDE1   // used 1 time(s)
+color.c6 = #4A5E68   // used 1 time(s)
+color.c7 = #0B6674   // used 1 time(s)
+color.c8 = #B3261E   // used 1 time(s)
+font.f1 = Source Sans 3   // used 1 time(s)
+font.f2 = IBM Plex Mono   // used 1 time(s)
+space.base = 4
+```
