@@ -7,6 +7,7 @@ matplotlib
 shapely
 pillow
 numpy
+pandas
 
 # optional
 contextily   # satellite / topo map types

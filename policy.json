@@ -1,0 +1,178 @@
+{
+  "author": "Imaad Ullah Khan Yameen",
+  "email": "yameenimaad@gmail.com",
+  "license": "This code is not for sale.",
+  "policy_version": "1.0",
+  "updated": "2026-11-06",
+  "project": {
+    "name": "AtlasA0",
+    "version": "1.1.0",
+    "description": "A0 print-ready and GIS-ready maps of Pakistan (country, provinces, districts, cities) from OpenStreetMap, as PNG and georeferenced GeoTIFF.",
+    "repository": "https://github.com/Danger-Khan/Atlas_A0",
+    "documentation": [
+      "README.md",
+      "SECURITY.md",
+      "https://github.com/Danger-Khan/Atlas_A0/wiki"
+    ]
+  },
+  "usage": {
+    "notice": "This code is not for sale.",
+    "selling_the_code": "not allowed",
+    "notice_in_files": "Every source and document file carries the author, email and 'This code is not for sale' notice. JSON files carry it as author / email / license fields. Keep the notice when copying files.",
+    "official_use_caveat": "Boundaries and features come from OpenStreetMap. Check them against Survey of Pakistan data before official or legal use.",
+    "license_file": "LICENSE",
+    "license_id": "PolyForm-Noncommercial-1.0.0",
+    "commercial_use": "not allowed without a separate written licence from the author (yameenimaad@gmail.com)",
+    "noncommercial_use": "allowed: personal, educational, research, charity and government use, as the licence states"
+  },
+  "data_sources": [
+    {
+      "name": "OpenStreetMap",
+      "used_for": "roads, water, land use, buildings, boundaries, points of interest",
+      "license": "ODbL 1.0",
+      "required_credit": "Map data © OpenStreetMap contributors",
+      "credit_on_maps": "printed automatically by the 'credit' element (on by default)"
+    },
+    {
+      "name": "Esri World Imagery",
+      "used_for": "'satellite' map type only",
+      "required_credit": "Imagery © Esri, Maxar, Earthstar Geographics",
+      "note": "Follow Esri's terms of use for printed or published imagery.",
+      "credit_on_maps": "printed automatically on satellite maps"
+    },
+    {
+      "name": "OpenTopoMap",
+      "used_for": "'topo' map type only",
+      "license": "CC-BY-SA",
+      "required_credit": "Style © OpenTopoMap (CC-BY-SA)",
+      "credit_on_maps": "printed automatically on topo maps, next to the OpenStreetMap credit"
+    }
+  ],
+  "privacy_and_network": {
+    "server": false,
+    "open_ports": false,
+    "accounts": false,
+    "telemetry": false,
+    "connections": [
+      {
+        "host": "nominatim.openstreetmap.org",
+        "purpose": "find place boundaries (osmnx default)",
+        "protocol": "https"
+      },
+      {
+        "host": "overpass-api.de",
+        "purpose": "download map features (osmnx default)",
+        "protocol": "https"
+      },
+      {
+        "host": "server.arcgisonline.com",
+        "purpose": "satellite tiles, 'satellite' type only (contextily)",
+        "protocol": "https"
+      },
+      {
+        "host": "tile.opentopomap.org",
+        "purpose": "topographic tiles, 'topo' type only (contextily)",
+        "protocol": "https"
+      }
+    ],
+    "sent_to_servers": "place names and map areas being requested only; never your layer files, settings or outputs",
+    "fair_use": "OpenStreetMap services are free and shared. Large batches (e.g. every district of a province) send many requests; the cache avoids repeating them. Do not run several big batches at once."
+  },
+  "local_files": [
+    {
+      "path": "output/ (or --outdir, $ATLASA0_OUTDIR)",
+      "content": "maps and receptor exports you asked for"
+    },
+    {
+      "path": "cache/ inside the AtlasA0 folder (next to run_gui.py), or $ATLASA0_CACHE; if that folder is read-only: the user cache folder (Windows %LOCALAPPDATA%/AtlasA0/cache, macOS ~/Library/Caches/AtlasA0, Linux ~/.cache/atlasa0)",
+      "content": "OpenStreetMap download cache; safe to delete"
+    },
+    {
+      "path": "~/.atlasa0_preset.json",
+      "content": "GUI choices (saved when you press Run or Save settings)"
+    },
+    {
+      "path": "~/.atlasa0_stats.json (or $ATLASA0_STATS)",
+      "content": "real file and download sizes, used for estimates; safe to delete"
+    },
+    {
+      "path": "Documents/AtlasA0/output and %LOCALAPPDATA%/AtlasA0/cache",
+      "content": "where the installed Windows app (AtlasA0.exe) keeps maps and the OSM cache, unless ATLASA0_OUTDIR / ATLASA0_CACHE are set"
+    }
+  ],
+  "inputs_read": {
+    "files": [
+      "batch JSON (--batch)",
+      "layer files: .shp .geojson .json .gpkg .kml .gml .csv",
+      "logo image",
+      "GUI settings file",
+      "raster layers: .tif .tiff (GeoTIFF)",
+      "choropleth tables: .csv .xlsx"
+    ],
+    "handling": "Read only, never uploaded, never executed. Batch JSON is data, not code. Only open files from people you trust."
+  },
+  "output_rules": {
+    "custom_file_names": "Templates may only use {region} {level} {type} {province} {dpi} {date}. Path separators and characters Windows forbids are removed, so files stay in the output folder.",
+    "overwrite_protection": "A template that would give several maps the same name is rejected before any download.",
+    "geotiff": "Map area only, georeferenced in UTM (country map: EPSG:32642). Legend, scale, north arrow and grid are left out unless tiff_furniture is set.",
+    "paper_sizes": "dpi is the real print resolution on the chosen paper; the file has paper size x dpi pixels. Fonts and line widths are scaled with the paper, so A4 text is smaller than A0 text."
+  },
+  "limits": {
+    "dpi_min": 50,
+    "dpi_max": 500,
+    "sheet": "A0 (841 x 1189 mm) by default; A1-A4 or a custom size in mm (100-3000 per side); portrait / landscape / auto",
+    "paper_sizes": [
+      "A0",
+      "A1",
+      "A2",
+      "A3",
+      "A4",
+      "custom WxH mm"
+    ],
+    "preview": "50 dpi PNG only (--preview)"
+  },
+  "security": {
+    "policy_file": "SECURITY.md",
+    "supported_versions": [
+      {
+        "version": "1.1.x",
+        "supported": true
+      },
+      {
+        "version": "1.0.x and older",
+        "supported": false
+      }
+    ],
+    "report_to": "yameenimaad@gmail.com",
+    "report_subject": "AtlasA0 security: <short title>",
+    "public_issues_for_vulnerabilities": false,
+    "response_days": {
+      "acknowledge": 7,
+      "assessment": 14,
+      "updates_every": 14,
+      "fix_normal": 30,
+      "fix_max": 90
+    },
+    "disclosure": "Keep details private until a fix is released or 90 days have passed, whichever comes first.",
+    "credit": "Reporters are credited if they want to be.",
+    "targets_not_guarantees": true
+  },
+  "contributions": {
+    "how": "Open an issue or email the author before large changes.",
+    "requirements": [
+      "keep the author / not-for-sale notice in every file",
+      "add tests (pytest) for new behaviour",
+      "no network access in offline tests",
+      "update README, wiki and milestone.md"
+    ],
+    "rights": "Contributing or reporting does not transfer any rights in the code."
+  },
+  "documents": {
+    "license": "LICENSE",
+    "notice": "NOTICE",
+    "terms": "TERMS.md",
+    "privacy": "PRIVACY.md",
+    "security": "SECURITY.md",
+    "review": "REVIEW.md"
+  }
+}

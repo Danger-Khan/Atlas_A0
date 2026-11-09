@@ -1,0 +1,47 @@
+# Author: Imaad Ullah Khan Yameen
+# Email: yameenimaad@gmail.com
+# This code is not for sale.
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "atlasa0"
+version = "1.1.0"
+description = "A0 print-ready and georeferenced maps of Pakistan from OpenStreetMap (noncommercial)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Imaad Ullah Khan Yameen", email = "yameenimaad@gmail.com" }]
+keywords = ["gis", "maps", "pakistan", "openstreetmap", "a0", "geotiff"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: Other/Proprietary License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: GIS",
+]
+dependencies = ["osmnx>=1.9", "geopandas", "matplotlib", "shapely", "pillow", "numpy", "pandas"]
+
+[project.optional-dependencies]
+satellite = ["contextily"]
+raster = ["rasterio"]
+excel = ["openpyxl"]
+all = ["contextily", "rasterio", "openpyxl"]
+dev = ["pytest", "openpyxl"]
+
+[project.scripts]
+atlasa0 = "atlasa0.cli:main"
+
+[project.gui-scripts]
+atlasa0-gui = "atlasa0.gui_tk:launch"
+
+[tool.setuptools.packages.find]
+include = ["atlasa0*"]
+
+[tool.setuptools.package-data]
+atlasa0 = ["assets/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

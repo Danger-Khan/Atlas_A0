@@ -115,3 +115,27 @@ Last updated: 2026-11-05. No dates are committed yet - set them once M5 is compl
 - ✅ 11 draw groups with a configurable order (GUI list top-first, CLI `--draw-order`, layout/batch `draw_order`); map elements always on top; order logged on every run
 - ✅ "Your data" list shown top-first and numbered; Move up now really brings a layer forward
 - 🔶 Look on a real map with a changed order not yet seen
+- LICENSE: PolyForm Noncommercial 1.0.0 added (M18)
+- GUI polish: wider label column (tab 6 heading), RAM shown with one decimal everywhere, street+PNG pre-ticked on start, estimate notes assumed defaults
+
+## M18 - Paper sizes, preview, labels (v1.1.0)
+- ✅ `--paper` A0-A4 / custom mm: A0-proportioned figure saved at dpi x k (tested: pixel counts, dpi metadata, scale text, estimates, names); `--preview` / GUI Preview button (50 dpi PNG, `_preview` name, not skipped, does not train estimates)
+- ✅ `place_point_labels`: 8 positions + shrink, avoids placed labels and other markers, `must` labels kept; used for receptor names and layer labels (tests: no overlaps, inside map, crowded points dropped)
+- 🔶 Paper sizes / labels not yet seen on a real OSM map; fonts on A4 are small by design
+
+## M19 - Raster layers and choropleth maps (v1.1.0)
+- ✅ `rasters.py`: GeoTIFF overlay / basemap, cmap, vmin/vmax percentile default, nodata transparent, RGB(A), legend with range; GUI dialog fields; CLI/API/batch via layer spec
+- 🔶 Reading with rasterio (`read_window`, `bounds_utm`) **never run** (rasterio not installable here); colour conversion and drawing are tested with a replaced reader
+- ✅ `choropleth.py`: CSV/XLSX table, name matching with aliases + fuzzy, quantile/equal/Jenks/manual classes, palettes, legend, show values; province (districts) and country (provinces) maps; GUI box, `--choropleth`
+- 🔶 Drawing on real province/country maps not yet seen (render needs geopandas)
+
+## M21 - Release pack (v1.1.0)
+- Done: TERMS, PRIVACY, NOTICE, REVIEW, CONTRIBUTING, CODE_OF_CONDUCT, pyproject.toml, GitHub CI (3 systems), issue/PR templates, Dependabot, CODEOWNERS, `launch.sh` / `launch.bat`, author line on every file (tested in `test_project_files.py`).
+- Security fixes: file-name template allows plain `{field}` only; Pillow image-size limit restored after the GeoTIFF write; georeference-embed failure is logged.
+- Open: compare LICENSE with the official PolyForm text; lawyer review of TERMS/PRIVACY; confirm governing law; file a patent only if an attorney says the idea qualifies; pin dependencies with hashes; sign the installer; real-PC runs.
+
+## M20 - Windows installer (v1.1.0)
+- ✅ `installer/`: app_main (writable default folders), PyInstaller spec, Inno Setup script with licence page, build script, README; static tests
+- ⬜ **Never built or run** (no Windows here): first build will probably need small fixes (GDAL/PROJ data, antivirus)
+- ⬜ Code signing
+- choropleth: names with the same words in another order now match; label plates on choropleth maps

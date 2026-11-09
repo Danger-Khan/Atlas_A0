@@ -106,3 +106,12 @@ Acceptance: a user adds a shapefile of sites, sets red 60 % opaque triangles wit
 
 - FR-38 Output file names are automatic by default; the user may give a template with fields {region} {level} {type} {province} {dpi} {date}; names that would overwrite each other are rejected before any download.
 - FR-39 A Settings tab holds naming, folder, skip-existing, automatic remembering of choices, open-folder-when-done and reset to defaults.
+
+- FR-40 Paper: A0 (default), A1-A4 or a custom size in mm; dpi is the print resolution on that paper; estimates, names, scale text and stored dpi follow the paper.
+- FR-41 Preview: a 50 dpi PNG-only quick render, named `_preview`, never skipped, shown automatically in the GUI.
+- FR-42 Receptor names and layer labels are placed without overlapping each other or covering markers; labels that cannot fit are counted in the log.
+- FR-43 GeoTIFF raster layers (overlay or basemap) with colour map, value limits, opacity, nodata transparency and legend entry; clear error if rasterio is missing.
+- FR-44 Choropleth: districts (province map) or provinces (country map) shaded from a CSV/Excel table with quantile/equal/natural/manual classes, palette choice, legend, optional numbers; unmatched names are reported.
+- FR-45 Windows app: one-folder exe and an installer showing the licence; installed app writes only to the user's own folders. (Status: files written, not built.)
+- FR-46 Release pack: terms, privacy policy, notice, security review, contributing and conduct files, packaging (`pyproject.toml`, console scripts), CI on Windows/macOS/Linux, launchers for each system; every file carries the author line (tested).
+- NFR: plain-field-only file-name templates; decompression-bomb limit stays on except while writing our own GeoTIFF.

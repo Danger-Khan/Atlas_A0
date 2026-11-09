@@ -116,3 +116,25 @@ Keep all GUI logic in `gui_core.py` (no toolkit imports) and progress/cancel in 
 
 ## Draw order (zorder)
 Never hard-code a zorder for map content. Use `Z = draw_zorders(lay.draw_order)` and `zorder=Z["<group>"] (+ up to 0.9)`; groups are in `furniture.DRAW_GROUPS`. Map elements use `FURNITURE_Z` (30). User layers share the `your_data` band (`draw_layers(..., zorder=Z["your_data"], label_zorder=Z["labels"] + 0.3)`). GUI lists are shown top-first; data lists stay bottom-first.
+
+## Design system (DESIGN.md)
+`DESIGN.md` (repo root) names every colour, font and spacing step AtlasA0 uses: the GUI, the map themes, land use,
+receptors and province tints. `config.py` stays the source of truth for map colours; `DESIGN.md` mirrors it.
+- **Changing a colour/font/padding:** edit the code and `DESIGN.md` together, then run
+  `python skills/design-md/tools/lint_design.py DESIGN.md` and
+  `python skills/design-md/tools/check_adherence.py atlasa0 --design DESIGN.md`.
+- `tests/test_design_sync.py` (part of `pytest`) fails if `config.py`/`render.py` and `DESIGN.md` drift apart, if
+  `DESIGN.md` stops linting clean (including WCAG contrast of the declared pairs), or if the package uses an
+  undocumented colour, font or padding. Never loosen a contrast pair or add a one-off hex to a renderer to make it pass.
+- GUI text colours: use `color.text`, `color.text-muted`, `color.primary-text` (the teal `#1F7A8C` is for icons and fills only; it
+  is 4.36:1 on the Windows grey, below AA, for small text).
+- The skill itself lives in `skills/design-md/` (its own tests: `python -m unittest discover -s skills/design-md/tests`).
+  `tools/make_icons.py` has its own icon palette that is not enforced.
+
+## Paper size, preview, labels, rasters, choropleth (v1.1)
+- **Paper:** `Layout.paper` ("A0".."A4" or "WxH" mm). Render functions get `size, sheet_k, paper = sheet_geometry(lay.paper, landscape)`; the figure is always A0-proportioned and `save_outputs(..., sheet_k=k)` saves at `dpi * k`. Never hard-code `A0_INCHES` or "A0" in names/estimates - use the paper. `estimates.*` take `paper`.
+- **Preview:** `generate_map(preview=True)` overrides dpi/formats/poi_data/skip_existing; do not record sizes from previews.
+- **Labels:** point-like names go to a `label_sink` list (`draw_layers(..., label_sink=)`, POI names) and are placed once with `overview.place_point_labels` after the axes limits are final (`render._flush_labels`). Do not `ax.annotate` names directly on the map.
+- **Rasters:** `.tif/.tiff` layers are `Prepared(raster=True)`; read and drawn at draw time for the final extent (`rasters.draw_raster`); `placement="basemap"` uses `base_zorder=Z["basemap"]+0.5`. rasterio only inside `rasters._rasterio()`.
+- **Choropleth:** `Layout.choropleth` (ChoroplethSpec). `render._make_choropleth` -> `choropleth.build`; colours/legend handles/numbers; keep `choropleth.py` free of geopandas so it stays testable.
+- **Installer:** `installer/app_main.py` must set `ATLASA0_*` before importing `atlasa0`; keep versions in `atlasa0/__init__.py`, `policy.json`, `installer/atlasa0.iss`, SECURITY.md in step (tests check).

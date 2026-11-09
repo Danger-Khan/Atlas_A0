@@ -173,6 +173,13 @@ Flags always override variables.
 | GUI never displayed in the build environment | Wiring tested with a stub; check layout/sizes on first launch. |
 | Not yet run against live data in the build environment | First real run is the top item in `milestone.md`. |
 
+## 9b. Version 1.1 additions
+- `config.sheet_geometry` / `parse_paper`: paper size -> A0-proportioned figure + scale factor k; `export.save_outputs(sheet_k)` saves at dpi x k.
+- `overview.place_point_labels`: collision-free point labels (receptors, layer names), run once per map after the limits are final.
+- `rasters.py`: GeoTIFF layers (read with rasterio, re-projected to the map window, colour-mapped, drawn with imshow).
+- `choropleth.py`: table -> classes -> colours -> legend, name matching; used by the province and country renderers.
+- `installer/`: PyInstaller spec, Inno Setup script, `app_main.py` (safe folders when installed).
+
 ## 10. Testing approach
 - **GUI**: controller, events, cancel and runner are tested directly; the Tk panel is exercised through a stub toolkit (`tests/tk_stub.py`: state round-trip, event handling, run/validate). The real window has not been displayed in the build environment.
 - **Layers and styles**: drawing tested through duck-typed geometries (colour, alpha, marker, size, line style, hatch, holes by pixel check, legend order, labels); styles/positions/labels tested on a synthetic A0 figure. Reading real files (`load_layer`) is covered only by the live tests.
@@ -180,3 +187,10 @@ Flags always override variables.
 - **Calibration**: `python tools/calibrate.py`.
 - **Live suite** (`ATLASA0_LIVE=1 pytest tests/test_live.py`): real city per map type, receptor counts and coordinates, district clipping, TIFF pixel size. Not yet run.
 - **Still needed**: one live run per level, TIFF opened in ArcMap and QGIS, receptor counts compared with known facilities, a look at elements on a dense real map.
+
+## 11. Release and packaging layout
+- `pyproject.toml` defines the package, extras (`satellite`, `raster`, `excel`, `all`, `dev`) and the commands `atlasa0` (cli.main) and `atlasa0-gui` (gui_tk.launch).
+- `launch.sh` / `launch.bat` create a private `.venv` and start the GUI (macOS/Linux/Windows). `installer/` builds the Windows app.
+- `.github/workflows/ci.yml` runs pytest on Ubuntu, Windows and macOS (Python 3.10-3.12) with read-only permissions.
+- Legal set: LICENSE, NOTICE, TERMS.md, PRIVACY.md, policy.json. Review set: SECURITY.md, REVIEW.md.
+- `tests/test_project_files.py` guards the author line, required files, version match and the two security fixes.

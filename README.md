@@ -22,7 +22,7 @@ atlasa0_project/
     cli.py      command line
   examples/jobs.json   sample batch file
   output/      generated maps (created on first run)
-  cache/       OSM download cache (set ATLASA0_CACHE to move it)
+  cache/       OSM download cache, inside the AtlasA0 folder (set ATLASA0_CACHE to move it)
   requirements.md  architecture.md  milestone.md  agent.md  requirements.txt
 ```
 
@@ -44,7 +44,7 @@ python -m atlasa0 Lahore --country --province kpk --district Swat --in kpk --for
 ```
 Put city names **before** `--province` / `--district` (those options take several values).
 
-Useful options: `--dpi 200`, `--landscape`, `--theme dark`, `--outdir DIR`, `--skip-existing`
+Useful options: `--dpi 200`, `--paper A3`, `--preview`, `--landscape`, `--theme dark`, `--outdir DIR`, `--skip-existing`
 (resume), `--dry-run` (count jobs only), `--manifest files.json`, `--radius-km 10`.
 
 ### Batch file (`--batch jobs.json`)
@@ -128,7 +128,7 @@ The georeferenced TIFF stays clean (no legend/scale/north/grid) unless `--tiff-f
 `ATLASA0_OUTDIR`, `ATLASA0_DPI`, `ATLASA0_THEME` (defaults for the flags), `ATLASA0_CACHE` (OSM cache), `ATLASA0_LIVE=1` (live tests).
 
 ## Skills
-`skills/` holds three Claude skills (atlasa0-maps, atlasa0-receptors, atlasa0-qa) describing the tools, variables and procedure for each job.
+`skills/` holds four Claude skills (atlasa0-maps, atlasa0-receptors, atlasa0-qa, design-md) describing the tools, variables and procedure for each job. `design-md` checks `DESIGN.md` (the colour, font and spacing spec for the GUI and maps) against the code; see `agent.md`.
 
 ## Window (GUI) - for your Python project viewer
 ```
@@ -178,6 +178,10 @@ Icons are PNG files in `atlasa0/assets/icons` (drawn by `python tools/make_icons
 ## Author
 Author: Imaad Ullah Khan Yameen - yameenimaad@gmail.com - *This code is not for sale*. Every source and document file carries this notice; JSON files carry it as `author` / `email` / `license` fields (batch files may be `{"author":..., "jobs":[...]}`); `python -m atlasa0 --about` prints it.
 
+## Licence
+
+AtlasA0 is licensed under the **PolyForm Noncommercial License 1.0.0** (full text in [`LICENSE`](LICENSE)). You may use, study, change and share it for personal, educational, research, charity and government purposes. You may **not** use it for commercial purposes (selling it, selling maps made with it, paid services or products) without a separate written licence from the author: yameenimaad@gmail.com. Keep the `Required Notice:` lines from `LICENSE` when you copy it. This is not legal advice; for a commercial deal or a dispute talk to a lawyer.
+
 ## File names and the Settings tab
 By default files get automatic names (`peshawar_A0_300dpi.png`). To choose your own, use a template:
 ```
@@ -185,7 +189,7 @@ python -m atlasa0 Peshawar Lahore --name "Map_{region}_{date}"      # -> Map_pes
 ```
 Fields: `{region} {level} {type} {province} {dpi} {date}`. No extension (`.png` / `.tif` is added). Spaces become `_` and characters Windows forbids are removed. Several maps in one run need `{region}` (and `{type}` for several map types) or AtlasA0 refuses, so files can never overwrite each other. Python: `generate_map(..., filename="Map_{region}")`; batch JSON: `"filename": "..."` per job.
 
-GUI tab **7 Settings**: *File names* (Automatic / My own name, with a live example), output folder, skip existing, **remember my choices automatically when I press Run**, **open the output folder when finished**, Save/Load settings, **Reset to automatic defaults**, export batch file.
+GUI tab **7 Settings**: *File names* (Automatic / My own name, with a live example), output folder, skip existing, **remember my choices automatically when I press Make maps**, **open the output folder when finished**, Save/Load settings, **Reset to automatic defaults**, export batch file.
 
 ## Resolution and size estimates
 DPI goes from 50 to 500 (`--dpi 500`; GUI: slider in tab 2 with quick buttons 100-500). Before running, the GUI (bottom bar and next to the slider) and `--dry-run` show pixels, RAM, OpenStreetMap download and total file size.
@@ -234,3 +238,69 @@ Title, legend, scale bar, north arrow and note are always above all of these.
 - **Your layers:** tab *3 Your data* is also shown top first and numbered ("2. (top)", "1. (bottom)"); *Move up* brings a layer forward. All your layers sit together at the `your_data` step. (Before this change the list ran bottom-to-top without numbers, so *Move up* actually pushed a layer down - fixed.)
 - **CLI:** `--draw-order "landuse,boundaries,roads,water"` (bottom -> top). Groups you leave out keep their default place. `--list-styles` lists the groups. Python / batch JSON: `layout={"draw_order": [...]}`.
 - Typical changes: rivers over roads -> move `water` above `roads`; your polygons under the roads -> move `your_data` below `roads` (and lower their opacity); receptor markers above your layers is the default.
+
+
+## Paper sizes (A0 to A4 and your own size)
+`--paper A3` (also A1, A2, A4, or millimetres `--paper 500x700`); GUI: *Paper* box in tab 2; Python/batch: `layout={"paper": "A3"}`.
+- `--dpi` is the **real print resolution on that paper**: A3 at 300 dpi gives 3508 x 4961 px; A0 at 300 dpi gives 9933 x 14043 px. The estimates, file names (`peshawar_A3_300dpi.png`), the scale bar text ("Scale 1:25,000 when printed at A3") and the dpi stored inside the PNG/TIFF all follow the paper.
+- How it works: the map is drawn once as an A0-proportioned figure and saved at `dpi x (paper short side / 841 mm)`, so the smaller sheet is an exact scaled copy (same layout, same label placement). Text and line widths shrink with the paper: on A4 the title is about a quarter of its A0 size. Use A3 or larger for maps with many labels.
+- Custom sizes: 100-3000 mm per side, any proportions (`--paper 600x900`); the map area adapts to the shape.
+
+## Preview first
+`--preview` (CLI), the **Preview** button next to *Make maps* (GUI), `generate_map(..., preview=True)`: a quick look at 50 dpi, PNG only, no receptor files, named `..._preview.png`, always redone (never skipped), and it opens by itself in the GUI. It ignores `--dpi`, `--format` and `--skip-existing`, and does not change the size estimates. The OpenStreetMap download and the drawing still happen (that is most of the time on a big area), but the downloads are cached, so the real run that follows is faster; what a preview saves is writing and memory for the big image.
+
+## Better label placement
+Receptor names and the names of your own layers (*label from attribute*) are now placed together without overlapping each other or covering other markers. For each label AtlasA0 tries 8 spots around its point (above, right, left, below, diagonals), then a slightly smaller size, and drops the label only if nothing fits (the log says how many were left out - zoom in, lower the label size, or print larger). Names of districts and provinces already used the same idea (since 1.0). Your free text labels (tab 6) stay exactly where you put them.
+
+## Your own raster layers (GeoTIFF)
+Add a `.tif` / `.tiff` in the *Your data* tab (or `--layer`, API, batch): NDVI, land cover, elevation, hillshade, a satellite composite.
+```
+--layer "ndvi.tif;name=NDVI 2025;cmap=RdYlGn;vmin=0;vmax=0.8;alpha=0.8"
+--layer "hillshade.tif;cmap=gray;placement=basemap"
+```
+- 1 band: coloured with `cmap` (default viridis) between `vmin` and `vmax` (default: 2nd-98th percentile of the visible area); 3-4 bands: shown as a colour picture. No-data cells are transparent. `alpha` is the opacity.
+- `placement=overlay` (default) sits in the *Your layers* step of the draw order; `basemap` goes under land use, water and roads so a hillshade or imagery shows through a street map.
+- `resample=nearest` for classes (land cover), `bilinear` (default) or `cubic` for continuous values. `band=2` picks another band. Any coordinate system works: only the part under the map is read and re-projected to the map's UTM zone.
+- Needs `pip install rasterio`. A GeoTIFF without a coordinate system is refused with a clear message. The legend shows the layer name and its value range.
+
+## Choropleth maps (shade districts or provinces by numbers)
+On a **province map** the districts, on the **country map** the provinces, are coloured from a table.
+```
+python -m atlasa0 --province kpk --choropleth "population.csv;name_col=District;value_col=Population;classes=5;palette=YlOrRd;title=Population (2023);show_values=1"
+```
+GUI: *Choropleth* box at the bottom of the *Your data* tab. Python / batch: `layout={"choropleth": {"file": "population.csv", "value_col": "Population"}}`.
+- Table: CSV or Excel (.xlsx), one column of names and one of numbers (columns are found automatically if you do not name them; thousands separators and `%` are fine).
+- Names are matched ignoring case, accents, punctuation and words like "District"; short forms such as D.I. Khan, DG Khan, KPK, ICT, AJK, GB work and close spellings are accepted. The log lists table rows that matched nothing and map areas that have no row (drawn as "no data") - check it once per table.
+- Class limits: `scheme=quantile` (default, same number of areas per class), `equal`, `natural` (Jenks) or `manual` with `breaks=10;50;100`; `classes` 2-9. `palette` is any matplotlib colour map (YlOrRd, Blues, Greens, viridis, cividis...) or colours like `#fee8c8,#e34a33`; `reverse=1` flips it.
+- The legend shows the heading (default: the value column) and one entry per class. Choropleths are ignored (with a message) on city and district maps.
+
+## Windows app and installer
+`installer/` builds `AtlasA0.exe` (PyInstaller) and `AtlasA0-Setup-<version>.exe` (Inno Setup, shows the licence, no administrator rights needed). On a Windows PC with Python: `installer\build_windows.bat`. See `installer/README.md` - the installer files are written and statically tested but have **not been built or run yet** (no Windows here), so test the result before giving it to anyone. The installed app saves maps in `Documents\AtlasA0\output` and the OSM cache in `%LOCALAPPDATA%\AtlasA0\cache` instead of the read-only Program Files folder.
+
+## Platforms and quick start
+Windows, macOS and Linux (Python 3.10 - 3.12). CI runs the tests on all three.
+
+| System | Start the window | Command line |
+|---|---|---|
+| Windows | double-click `launch.bat` (or the installer, see above) | `.venv\Scripts\atlasa0 --help` |
+| macOS / Linux | `./launch.sh` | `.venv/bin/atlasa0 --help` |
+| Any | `pip install -e ".[all]"` then `atlasa0-gui` | `atlasa0 --help` |
+
+Optional extras: `[satellite]` (contextily), `[raster]` (rasterio), `[excel]` (openpyxl), `[dev]` (tests).
+Python needs Tk for the window (Linux: `sudo apt install python3-tk`).
+
+## Project files
+| File | What it is |
+|---|---|
+| `LICENSE`, `NOTICE` | PolyForm Noncommercial 1.0.0, not for sale, patent and attribution notices |
+| `TERMS.md`, `PRIVACY.md`, `policy.json` | Terms and conditions, privacy policy, machine-readable policy |
+| `SECURITY.md`, `REVIEW.md` | How to report problems; security and release review (what was checked, fixed and is still open) |
+| `architecture.md`, `requirements.md`, `milestone.md`, `DESIGN.md`, `agent.md` | How it is built, what it must do, progress, design rules, notes for AI agents |
+| `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `.github/` | Rules for contributors, CI, issue and PR templates |
+| `pyproject.toml`, `requirements*.txt` | Packaging and dependencies |
+
+Every source and document file starts with the author line; a test checks it.
+
+## Security
+See [SECURITY.md](SECURITY.md): supported versions (current: 1.1.x), how to report a vulnerability privately by email, response times and scope. `python -m atlasa0 --about` shows your version.
+`policy.json` is the same policy in machine-readable form (licence notice, data sources and required credits, network hosts, local files, limits, security contacts); `tests/test_policy.py` keeps it in sync with the code and SECURITY.md.

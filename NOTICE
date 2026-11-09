@@ -1,0 +1,23 @@
+Author: Imaad Ullah Khan Yameen
+Email: yameenimaad@gmail.com
+This code is not for sale.
+
+AtlasA0
+Copyright (c) 2026 Imaad Ullah Khan Yameen. All rights reserved except as granted in LICENSE.
+
+Licence       PolyForm Noncommercial License 1.0.0 (see LICENSE). Commercial use needs a separate
+              written licence from the author.
+Not for sale  AtlasA0 may not be sold, rented or bundled into a paid product or service.
+Patents       The author reserves all patent rights. The LICENSE gives users a patent licence for
+              noncommercial use only, and it ends if the user claims in writing that AtlasA0
+              infringes a patent. No patent has been granted or filed at the date of this notice;
+              the author may file one.
+Trademark     "AtlasA0" is the name of this project; no trademark licence is granted.
+Attribution   Do not remove the author lines from any file. Copies must keep this NOTICE, the LICENSE and
+              all lines starting with "Required Notice:".
+
+Third-party data and software
+- Map data (c) OpenStreetMap contributors, ODbL 1.0 (https://www.openstreetmap.org/copyright)
+- Esri World Imagery and OpenTopoMap (CC-BY-SA) tiles keep their own terms.
+- Python packages (osmnx, geopandas, shapely, matplotlib, numpy, pandas, pillow, rasterio,
+  contextily, openpyxl, ...) keep their own licences.

@@ -11,10 +11,13 @@ AtlasA0 is a desktop/command-line tool. It runs on your own computer, has no ser
 
 | Version | Supported | Notes |
 | ------- | --------- | ----- |
-| 1.0.x   | :white_check_mark: | Current release (`python -m atlasa0 --about` shows your version) |
-| < 1.0 (unversioned snapshots shared before November 2026) | :x: | Please update to 1.0.x |
+| 1.1.x   | :white_check_mark: | Current release (`python -m atlasa0 --about` shows your version) |
+| 1.0.x and older (including unversioned snapshots shared before November 2026) | :x: | Please update to 1.1.x |
 
-Only the latest 1.0.x release gets fixes. When a 1.1 or 2.0 line comes out, this table will say how long 1.0.x stays supported.
+Only the latest 1.1.x release gets fixes. When a 1.2 or 2.0 line comes out, this table will say how long 1.1.x stays supported.
+
+## Security review
+What was checked, fixed and is still open is listed in [REVIEW.md](REVIEW.md).
 
 ## Reporting a Vulnerability
 
@@ -48,7 +51,7 @@ This is a one-person project maintained alongside other work, so the times above
 - **Files AtlasA0 reads that someone else could give you:** batch JSON files (`--batch`), saved GUI settings (`~/.atlasa0_preset.json`), layer files (shapefile, GeoJSON, GeoPackage, KML, GML, CSV), logo images, and the size-statistics file (`~/.atlasa0_stats.json`). A crafted file must never run code, delete or overwrite files outside the chosen output folder, or crash the program in a way that harms your system.
 - **Where files are written:** custom file-name templates (`--name`, GUI *Settings*) are cleaned of path separators and forbidden characters; any way to escape the output folder is a bug.
 - **Network use:** AtlasA0 only contacts OpenStreetMap services through osmnx (Nominatim geocoding and the Overpass API) and, for `satellite` / `topo` maps, tile servers through contextily (Esri World Imagery, OpenTopoMap), all over HTTPS. Report anything that sends your data elsewhere, uses plain HTTP, or turns off certificate checks.
-- **Local data:** downloads are cached in the `cache` folder (or `$ATLASA0_CACHE`). Report any case where AtlasA0 stores or sends something that is not map data or your own settings.
+- **Local data:** downloads are cached in the `cache` folder inside the AtlasA0 folder (or `$ATLASA0_CACHE`; if that folder is read-only, your user cache folder). Report any case where AtlasA0 stores or sends something that is not map data or your own settings.
 
 ### Out of scope (not security bugs)
 
@@ -66,4 +69,4 @@ This is a one-person project maintained alongside other work, so the times above
 
 ## License note
 
-AtlasA0 is by Imaad Ullah Khan Yameen. This code is not for sale. Reporting a vulnerability does not transfer any rights in the code.
+AtlasA0 is by Imaad Ullah Khan Yameen and is licensed under the PolyForm Noncommercial License 1.0.0 (see `LICENSE`). This code is not for sale. Reporting a vulnerability does not transfer any rights in the code.
