@@ -19,6 +19,7 @@ import sys
 import tkinter as tk
 from tkinter import colorchooser, filedialog, messagebox, ttk
 
+from . import config
 from . import estimates as est
 from . import gui_core as core
 from . import icons
@@ -41,6 +42,10 @@ class AtlasPanel(ttk.Frame):
         self.draw_order = list(core.describe_options()["default_draw_order"])   # bottom -> top
         self._build()
         self._load_preset(silent=True)
+        if not self._chosen("type"):
+            self._set_chosen("type", ["street"])      # sensible start: street map as PNG (no preset yet, or empty one)
+        if not self._chosen("fmt"):
+            self._set_chosen("fmt", ["png"])
         self._name_changed()
         self._update_estimate()
         self.after(150, self._poll)
@@ -92,37 +97,14 @@ class AtlasPanel(ttk.Frame):
 
     # ------------------------------------------------------------------ layout
     def _build(self):
-        nb = ttk.Notebook(self)
-        nb.pack(fill="both", expand=True)
-        self._tab_where(nb)
-        self._tab_map(nb)
-        self._tab_layers(nb)
-        self._tab_receptors(nb)
-        self._tab_elements(nb)
-        self._tab_styles(nb)
-        self._tab_settings(nb)
-
-        bar = ttk.Frame(self)
-        bar.pack(fill="x", padx=PAD, pady=PAD)
-        self.estimate_lbl = ttk.Label(bar, text="", justify="left")
-        self.estimate_lbl.pack(side="left", fill="x", expand=True)
-        self.run_btn = self._btn(bar, "Make maps", self._run, "run")
-        self.run_btn.pack(side="right", padx=PAD)
-        self.cancel_btn = self._btn(bar, "Cancel", self._cancel, "cancel", state="disabled")
-        self.cancel_btn.pack(side="right")
-        self.progress = ttk.Progressbar(self, mode="determinate")
-        self.progress.pack(fill="x", padx=PAD)
-        self.status = ttk.Label(self, text="Ready")
-        self.status.pack(fill="x", padx=PAD)
-        ttk.Label(self, text="Author: Imaad Ullah Khan Yameen  |  yameenimaad@gmail.com  |  This code is not for sale",
-                  foreground="#555555").pack(fill="x", padx=PAD)
-
+        # Pack order matters in Tk: the widgets pinned to the bottom are packed FIRST, so the Make maps /
+        # Preview bar is always visible even on a short screen; the tab area then takes whatever room is left.
         out = ttk.PanedWindow(self, orient="horizontal")
-        out.pack(fill="both", expand=True, padx=PAD, pady=PAD)
-        self.log = tk.Text(out, height=10, state="disabled", wrap="word")
+        out.pack(side="bottom", fill="x", padx=PAD, pady=PAD)
+        self.log = tk.Text(out, height=6, state="disabled", wrap="word")
         out.add(self.log, weight=3)
         right = ttk.Frame(out)
-        self.files = tk.Listbox(right, height=10)
+        self.files = tk.Listbox(right, height=6)
         self.files.pack(fill="both", expand=True)
         self.files.bind("<Double-Button-1>", lambda e: self._open_selected())
         btns = ttk.Frame(right)
@@ -130,6 +112,34 @@ class AtlasPanel(ttk.Frame):
         self._btn(btns, "Open file", self._open_selected, "map").pack(side="left")
         self._btn(btns, "Open folder", self._open_folder, "output").pack(side="left", padx=PAD)
         out.add(right, weight=2)
+
+        ttk.Label(self, text="Author: Imaad Ullah Khan Yameen  |  yameenimaad@gmail.com  |  This code is not for sale",
+                  foreground="#555555").pack(side="bottom", fill="x", padx=PAD)
+        self.status = ttk.Label(self, text="Ready")
+        self.status.pack(side="bottom", fill="x", padx=PAD)
+        self.progress = ttk.Progressbar(self, mode="determinate")
+        self.progress.pack(side="bottom", fill="x", padx=PAD)
+
+        bar = ttk.Frame(self)
+        bar.pack(side="bottom", fill="x", padx=PAD, pady=PAD)
+        self.estimate_lbl = ttk.Label(bar, text="", justify="left")
+        self.estimate_lbl.pack(side="left", fill="x", expand=True)
+        self.run_btn = self._btn(bar, "Make maps", self._run, "run")
+        self.run_btn.pack(side="right", padx=PAD)
+        self.preview_btn = self._btn(bar, "Preview", lambda: self._run(preview=True), "map")
+        self.preview_btn.pack(side="right")
+        self.cancel_btn = self._btn(bar, "Cancel", self._cancel, "cancel", state="disabled")
+        self.cancel_btn.pack(side="right")
+
+        nb = ttk.Notebook(self)
+        nb.pack(side="top", fill="both", expand=True)
+        self._tab_where(nb)
+        self._tab_map(nb)
+        self._tab_layers(nb)
+        self._tab_receptors(nb)
+        self._tab_elements(nb)
+        self._tab_styles(nb)
+        self._tab_settings(nb)
 
     def _tab_where(self, nb):
         f = ttk.Frame(nb)
@@ -173,21 +183,25 @@ class AtlasPanel(ttk.Frame):
         top = ttk.Frame(rq)
         top.pack(fill="x", padx=PAD, pady=(PAD, 0))
         self._var("dpi", "i", 100)
+        # the label must exist BEFORE the slider: newer Tk calls the slider command as soon as set() runs
+        self.dpi_lbl = ttk.Label(top, text=est.dpi_label(100), width=26)
         self.dpi_scale = ttk.Scale(top, from_=est.DPI_MIN, to=est.DPI_MAX, orient="horizontal",
                                    command=self._dpi_slid, length=360)
-        self.dpi_scale.set(100)
         self.dpi_scale.pack(side="left", fill="x", expand=True)
-        self.dpi_lbl = ttk.Label(top, text=est.dpi_label(100), width=26)
         self.dpi_lbl.pack(side="left", padx=PAD)
+        self.dpi_scale.set(100)
         quick = ttk.Frame(rq)
         quick.pack(fill="x", padx=PAD, pady=PAD)
         for d in (100, 200, 300, 400, 500):
             ttk.Button(quick, text=str(d), width=5, command=lambda d=d: self._set_dpi(d)).pack(side="left", padx=2)
-        self.size_lbl = ttk.Label(quick, text="", foreground="#1f7a8c")
+        self.size_lbl = ttk.Label(quick, text="", foreground="#1a6b7b")
         self.size_lbl.pack(side="left", padx=PAD)
         q = ttk.LabelFrame(f, text="Look")
         q.pack(fill="x", padx=PAD, pady=PAD)
-        ttk.Label(q, text="Sheet:").pack(side="left", padx=(PAD, 2))
+        ttk.Label(q, text="Paper:").pack(side="left", padx=(PAD, 2))
+        self._var("paper", "s", "A0")
+        ttk.Combobox(q, values=self.opts["papers"], textvariable=self.v["paper"], width=9).pack(side="left", padx=(0, PAD))
+        ttk.Label(q, text="Orientation:").pack(side="left", padx=(PAD, 2))
         self._var("landscape", "s", "auto")
         ttk.Combobox(q, values=["auto", "portrait", "landscape"], textvariable=self.v["landscape"], state="readonly",
                      width=10).pack(side="left", padx=(0, PAD))
@@ -275,7 +289,7 @@ class AtlasPanel(ttk.Frame):
         ttk.Label(nm, text="Fields you can use: {region} {level} {type} {province} {dpi} {date}.  No extension needed "
                            "(.png / .tif is added).\nSeveral maps in one run need {region} (and {type} for several map types) "
                            "so files do not overwrite each other.", foreground="#555").pack(anchor="w", padx=PAD)
-        self.name_example = ttk.Label(nm, text="", foreground="#1f7a8c")
+        self.name_example = ttk.Label(nm, text="", foreground="#1a6b7b")
         self.name_example.pack(anchor="w", padx=PAD, pady=(0, PAD))
         self.v["name_template"].trace_add("write", lambda *_: self._name_changed())
         # ---- folder
@@ -290,7 +304,7 @@ class AtlasPanel(ttk.Frame):
         self._var("skip", "b", True)
         ttk.Checkbutton(fo, text="Skip maps that already exist (resume a long run)", variable=self.v["skip"]).pack(anchor="w", padx=PAD)
         self._var("auto_save", "b", True)
-        ttk.Checkbutton(fo, text="Remember all my choices automatically when I press Run",
+        ttk.Checkbutton(fo, text="Remember all my choices automatically when I press Make maps",
                         variable=self.v["auto_save"]).pack(anchor="w", padx=PAD)
         self._var("open_folder", "b", False)
         ttk.Checkbutton(fo, text="Open the output folder when the run finishes",
@@ -308,7 +322,9 @@ class AtlasPanel(ttk.Frame):
         d = max(est.DPI_MIN, min(est.DPI_MAX, d))
         if self.v["dpi"].get() != d:
             self.v["dpi"].set(d)          # trace -> _update_estimate
-        self.dpi_lbl.config(text=est.dpi_label(d))
+        lbl = getattr(self, "dpi_lbl", None)   # may not exist yet while the window is being built
+        if lbl is not None:
+            lbl.config(text=est.dpi_label(d))
 
     def _set_dpi(self, d):
         d = max(est.DPI_MIN, min(est.DPI_MAX, int(d)))
@@ -332,7 +348,7 @@ class AtlasPanel(ttk.Frame):
         self.name_example.config(text=("Example file name:  " + ex) if ex else "")
 
     def _reset_defaults(self):
-        if messagebox.askyesno("AtlasA0", "Put every choice back to the automatic defaults?\n(Your saved settings file is not deleted until you press Run.)"):
+        if messagebox.askyesno("AtlasA0", "Put every choice back to the automatic defaults?\n(Your saved settings file is not deleted until you press Make maps.)"):
             self.layers, self.labels = [], []
             self.set_state(core.FormState())
 
@@ -340,11 +356,12 @@ class AtlasPanel(ttk.Frame):
         f = ttk.Frame(nb)
         self._add_tab(nb, f, "3  Your data", "layers")
         ttk.Label(f, text="Add your own points, lines and polygons (shapefile, GeoJSON, GeoPackage, KML, CSV with "
-                          "lon/lat). Each layer gets its own colour, transparency and marker style.",
+                          "lon/lat) or rasters (GeoTIFF: NDVI, elevation, imagery). Each layer gets its own colour, transparency "
+                          "and style.",
                   wraplength=700, justify="left").pack(anchor="w", padx=PAD, pady=PAD)
         row = ttk.Frame(f)
         row.pack(fill="both", expand=True, padx=PAD)
-        self.layer_list = tk.Listbox(row, height=10, exportselection=False)
+        self.layer_list = tk.Listbox(row, height=7, exportselection=False)
         self.layer_list.pack(side="left", fill="both", expand=True)
         self.layer_list.bind("<Double-Button-1>", lambda e: self._edit_layer())
         col = ttk.Frame(row)
@@ -358,6 +375,45 @@ class AtlasPanel(ttk.Frame):
                           "'Your layers' step of the map draw order (tab 6) - move that step to put them above or "
                           "below roads, water, receptors... Opaque polygons hide what is under them; lower the opacity "
                           "to see through.", wraplength=700, justify="left").pack(anchor="w", padx=PAD, pady=PAD)
+        cp = ttk.LabelFrame(f, text="Choropleth - shade districts (province map) or provinces (country map) from a table")
+        cp.pack(fill="x", padx=PAD, pady=PAD)
+        r = ttk.Frame(cp)
+        r.pack(fill="x", padx=PAD, pady=2)
+        ttk.Label(r, text="Table (.csv / .xlsx):", width=20).pack(side="left")
+        self._var("chp_file", "s", "")
+        ttk.Entry(r, textvariable=self.v["chp_file"], width=40).pack(side="left", fill="x", expand=True)
+        ttk.Button(r, text="Browse...", command=self._browse_table).pack(side="left", padx=PAD)
+        r = ttk.Frame(cp)
+        r.pack(fill="x", padx=PAD, pady=2)
+        for label, name, w in (("Name column", "chp_name", 14), ("Value column", "chp_value", 14)):
+            ttk.Label(r, text=label + " (blank = auto):" if name == "chp_name" else label + ":").pack(side="left")
+            self._var(name, "s", "")
+            ttk.Entry(r, textvariable=self.v[name], width=w).pack(side="left", padx=(2, PAD))
+        r = ttk.Frame(cp)
+        r.pack(fill="x", padx=PAD, pady=2)
+        ttk.Label(r, text="Class limits:").pack(side="left")
+        self._var("chp_scheme", "s", "quantile")
+        ttk.Combobox(r, values=self.opts["choropleth_schemes"], textvariable=self.v["chp_scheme"], state="readonly",
+                     width=10).pack(side="left", padx=(2, PAD))
+        ttk.Label(r, text="Classes:").pack(side="left")
+        self._var("chp_classes", "s", "5")
+        ttk.Entry(r, textvariable=self.v["chp_classes"], width=3).pack(side="left", padx=(2, PAD))
+        ttk.Label(r, text="Colours:").pack(side="left")
+        self._var("chp_palette", "s", "YlOrRd")
+        ttk.Combobox(r, values=self.opts["choropleth_palettes"], textvariable=self.v["chp_palette"], width=10).pack(
+            side="left", padx=(2, PAD))
+        r = ttk.Frame(cp)
+        r.pack(fill="x", padx=PAD, pady=(2, PAD))
+        ttk.Label(r, text="Legend heading:", width=20).pack(side="left")
+        self._var("chp_title", "s", "")
+        ttk.Entry(r, textvariable=self.v["chp_title"], width=24).pack(side="left", padx=(0, PAD))
+        self._var("chp_show", "b", False)
+        ttk.Checkbutton(r, text="Print the numbers on the map", variable=self.v["chp_show"]).pack(side="left")
+
+    def _browse_table(self):
+        p = filedialog.askopenfilename(filetypes=[("Tables", "*.csv *.xlsx"), ("All", "*.*")])
+        if p:
+            self.v["chp_file"].set(p)
 
     def _tab_styles(self, nb):
         f = ttk.Frame(nb)
@@ -367,14 +423,14 @@ class AtlasPanel(ttk.Frame):
         def combo(parent, label, name, values, default, width=14):
             r = ttk.Frame(parent)
             r.pack(fill="x", padx=PAD, pady=2)
-            ttk.Label(r, text=label, width=18).pack(side="left")
+            ttk.Label(r, text=label, width=24).pack(side="left")
             self._var(name, "s", default)
             ttk.Combobox(r, values=values, textvariable=self.v[name], state="readonly", width=width).pack(side="left")
 
         def entry(parent, label, name, default, width=8):
             r = ttk.Frame(parent)
             r.pack(fill="x", padx=PAD, pady=2)
-            ttk.Label(r, text=label, width=18).pack(side="left")
+            ttk.Label(r, text=label, width=24).pack(side="left")
             self._var(name, "s", default)
             ttk.Entry(r, textvariable=self.v[name], width=width).pack(side="left")
 
@@ -544,7 +600,7 @@ class AtlasPanel(ttk.Frame):
             country=self.v["country"].get(), provinces=self._chosen("prov"),
             cities=core.parse_names(self.cities_txt.get("1.0", "end")),
             district_province=self.dist_prov.get(), districts=sel,
-            map_types=self._chosen("type"), formats=self._chosen("fmt"), dpi=dpi, theme=self.v["theme"].get(),
+            map_types=self._chosen("type"), formats=self._chosen("fmt"), dpi=dpi, paper=self.v["paper"].get().strip() or "A0", theme=self.v["theme"].get(),
             landscape=self.v["landscape"].get(), buildings=self.v["buildings"].get(), radius_km=radius,
             pois=self._chosen("poi"), poi_labels=self.v["poi_labels"].get(), poi_data=self.v["poi_data"].get(),
             poi_formats=self._chosen("pfmt"), elements=self._chosen("el"), title=self.v["title"].get().strip(),
@@ -552,6 +608,7 @@ class AtlasPanel(ttk.Frame):
             legend_pos=self.v["legend_pos"].get(), note=self.v["note"].get().strip(), logo=self.v["logo"].get().strip(),
             grid_km=grid, tiff_furniture=self.v["tiff_furniture"].get(), outdir=self.v["outdir"].get().strip(),
             skip_existing=self.v["skip"].get(), name_mode=self.v["name_mode"].get(), name_template=self.v["name_template"].get().strip() or "{region}_{type}", auto_save=self.v["auto_save"].get(), open_folder=self.v["open_folder"].get(), layers=list(self.layers), labels=list(self.labels), draw_order=list(self.draw_order),
+            choropleth=self._choropleth_dict(),
             legend_style=self.v["legend_style"].get(), legend_title=self.v["legend_title"].get(),
             legend_cols=num_i("legend_cols", 1), north_style=self.v["north_style"].get(),
             north_pos=self.v["north_pos"].get(), north_size=num_f("north_size", 1.0),
@@ -559,7 +616,22 @@ class AtlasPanel(ttk.Frame):
             scale_pos=self.v["scale_pos"].get(), scale_divisions=num_i("scale_divisions", 4),
             note_pos=self.v["note_pos"].get())
 
+    def _choropleth_dict(self):
+        try:
+            return core.choropleth_from_fields(
+                self.v["chp_file"].get(), self.v["chp_name"].get(), self.v["chp_value"].get(), self.v["chp_scheme"].get(),
+                self.v["chp_classes"].get(), self.v["chp_palette"].get(), self.v["chp_title"].get(), self.v["chp_show"].get())
+        except ValueError:
+            return {"file": self.v["chp_file"].get().strip(), "classes": 0}      # validate() shows the real message
+
     def set_state(self, s):
+        cp = s.choropleth or {}
+        for name, key, dflt in (("chp_file", "file", ""), ("chp_name", "name_col", ""), ("chp_value", "value_col", ""),
+                                ("chp_scheme", "scheme", "quantile"), ("chp_classes", "classes", 5),
+                                ("chp_palette", "palette", "YlOrRd"), ("chp_title", "title", ""),
+                                ("chp_show", "show_values", False)):
+            val = cp.get(key, dflt)
+            self.v[name].set(val if name == "chp_show" else str(val))
         self.draw_order = list(s.draw_order or self.opts["default_draw_order"])
         if hasattr(self, "order_list"):
             self._refresh_order()
@@ -567,10 +639,10 @@ class AtlasPanel(ttk.Frame):
         self._set_chosen("prov", s.provinces)
         self.cities_txt.delete("1.0", "end")
         self.cities_txt.insert("1.0", "\n".join(s.cities))
-        self._set_chosen("type", s.map_types)
-        self._set_chosen("fmt", s.formats)
+        self._set_chosen("type", s.map_types or ["street"])      # nothing ticked is not a valid run: show the defaults
+        self._set_chosen("fmt", s.formats or ["png"])
         self._set_dpi(s.dpi)
-        for name, val in (("theme", s.theme), ("landscape", {True: "landscape", False: "portrait"}.get(s.landscape, s.landscape)), ("buildings", s.buildings),
+        for name, val in (("paper", s.paper or "A0"), ("theme", s.theme), ("landscape", {True: "landscape", False: "portrait"}.get(s.landscape, s.landscape)), ("buildings", s.buildings),
                           ("radius", "" if s.radius_km is None else str(s.radius_km)), ("poi_labels", s.poi_labels),
                           ("poi_data", s.poi_data), ("title", s.title), ("subtitle", s.subtitle), ("note", s.note),
                           ("legend_pos", s.legend_pos), ("logo", s.logo),
@@ -606,9 +678,9 @@ class AtlasPanel(ttk.Frame):
         if e["warnings"]:
             txt += "\n" + "  ".join(e["warnings"])
         if hasattr(self, "size_lbl"):
-            per = est.file_mb((s.map_types or ["street"])[0], "png", s.dpi, s.landscape)[0]
-            self.size_lbl.config(text=f"{e['pixels'][0]} x {e['pixels'][1]} px, about {est.fmt_mb(per)} per PNG, "
-                                      f"{e['ram_gb']:.0f} GB RAM")
+            per = est.file_mb((s.map_types or ["street"])[0], "png", s.dpi, s.landscape, e["paper"])[0]
+            self.size_lbl.config(text=f"{e['paper']} {e['pixels'][0]} x {e['pixels'][1]} px, about {est.fmt_mb(per)} per PNG, "
+                                      f"{e['ram_gb']:.1f} GB RAM")
         self.estimate_lbl.config(text=txt)
         if hasattr(self, "name_example"):
             self._update_name_example()
@@ -637,9 +709,9 @@ class AtlasPanel(ttk.Frame):
             self.events.put({"type": "districts", "names": names, "error": err})
         core.load_districts_async(pv, done)
 
-    def _run(self):
+    def _run(self, preview=False):
         try:
-            jobs, kw = core.build_jobs(self.get_state())
+            jobs, kw = core.build_jobs(self.get_state(), preview=preview)
         except core.FormError as e:
             messagebox.showwarning("Check your settings", "\n".join(e.problems))
             return
@@ -648,9 +720,12 @@ class AtlasPanel(ttk.Frame):
         self.produced, self.progress["value"] = [], 0
         self.files.delete(0, "end")
         self._log("--- run started ---")
+        self._log(config.diagnostics())
+        self._preview_run = preview
         self.run_btn.config(state="disabled")
+        self.preview_btn.config(state="disabled")
         self.cancel_btn.config(state="normal")
-        self.status.config(text="Starting...")
+        self.status.config(text="Starting preview..." if preview else "Starting...")
         self.runner.start(jobs, **kw)
 
     def _cancel(self):
@@ -688,12 +763,15 @@ class AtlasPanel(ttk.Frame):
         elif t == "finished":
             res = ev["result"]
             self.run_btn.config(state="normal")
+            self.preview_btn.config(state="normal")
             self.cancel_btn.config(state="disabled")
             note = " (cancelled)" if res.get("cancelled") else ""
             self.status.config(text=f"Done{note}: {len(res['files'])} file(s), {len(res['failed'])} failed")
             if self.on_files and self.produced:
                 self.on_files(list(self.produced))
-            if self.v["open_folder"].get() and self.produced:
+            if getattr(self, "_preview_run", False) and self.produced:
+                self._open(self.produced[0])          # show the preview straight away
+            elif self.v["open_folder"].get() and self.produced:
                 self._open_folder()
 
     def _log(self, msg):
@@ -848,6 +926,14 @@ class LayerDialog(_Dialog):
         self._row("Label halo", "b", "label_halo", d.get("label_halo", True), "check")
         self._row("Show in legend", "b", "legend", d.get("legend", True), "check")
         self._row("Fit map extent to layer", "b", "fit", d.get("fit", False), "check")
+        ttk.Label(self.body, text="GeoTIFF layers only (NDVI, elevation, imagery...). Opacity above applies too.",
+                  foreground="#555").pack(anchor="w", pady=(6, 0))
+        self._row("Colour map (1 band)", "s", "cmap", d.get("cmap", "") or "viridis", "combo", opts["raster_cmaps"])
+        self._row("Lowest value (blank = auto)", "s", "vmin", "" if d.get("vmin") is None else str(d["vmin"]), width=10)
+        self._row("Highest value (blank = auto)", "s", "vmax", "" if d.get("vmax") is None else str(d["vmax"]), width=10)
+        self._row("Band", "s", "band", str(d.get("band", 1)), width=4)
+        self._row("Placement", "s", "placement", d.get("placement", "overlay"), "combo", opts["raster_placements"])
+        self._row("Resampling", "s", "resample", d.get("resample", "bilinear"), "combo", opts["raster_resamples"])
         self.preview = tk.Canvas(self.body, width=300, height=72, background="white", highlightthickness=1)
         self.preview.pack(pady=PAD)
         self._buttons("Add" if not spec else "Save")
@@ -870,6 +956,11 @@ class LayerDialog(_Dialog):
              "label_halo": bool(v["label_halo"]), "legend": bool(v["legend"]), "fit": bool(v["fit"])}
         if not v["alpha_auto"]:
             d["alpha"] = round(float(v["alpha_pct"]) / 100, 2)
+        if os.path.splitext(d["path"])[1].lower() in (".tif", ".tiff"):     # raster-only options
+            d.update(cmap=v["cmap"], placement=v["placement"], resample=v["resample"], band=int(v["band"] or 1))
+            for k in ("vmin", "vmax"):
+                if str(v[k]).strip():
+                    d[k] = float(v[k])
         return d
 
     def _ok(self):
@@ -936,14 +1027,20 @@ class LabelDialog(_Dialog):
 def launch():
     root = tk.Tk()
     root.title("AtlasA0 - maps of Pakistan for GIS and A0 print")
-    root.geometry("1020x900")
+    # fit the window to the screen (a fixed 900 px height hid the bottom bar on 768 px laptops)
+    w = min(1020, max(640, root.winfo_screenwidth() - 40))
+    h = min(900, max(520, root.winfo_screenheight() - 90))
+    root.geometry(f"{w}x{h}+20+10")
+    root.minsize(640, 520)
     img = icons.get("app", root)
     if img:
         try:
             root.iconphoto(True, img)
         except Exception:
             pass
-    AtlasPanel(root).pack(fill="both", expand=True)
+    panel = AtlasPanel(root)
+    panel.pack(fill="both", expand=True)
+    root.bind("<Control-Return>", lambda e: panel._run())  # keyboard shortcut for Make maps
     root.mainloop()
 
 

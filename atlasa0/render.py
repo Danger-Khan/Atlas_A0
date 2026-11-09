@@ -11,12 +11,13 @@ import osmnx as ox
 from matplotlib.patches import Patch, Rectangle
 from shapely.geometry import box
 
-from .config import (AXES_RECT, POI_CATEGORIES, POI_PRESETS, resolve_pois, A0_INCHES, LANDUSE_COLORS, LANDUSE_OTHER, MAP_TYPES, PROVINCE_QUERY,
+from .config import (AXES_RECT, POI_CATEGORIES, POI_PRESETS, resolve_pois, sheet_geometry, LANDUSE_COLORS, LANDUSE_OTHER, MAP_TYPES, PROVINCE_QUERY,
                      ROAD_WIDTH, THEMES)
 from .export import save_outputs, write_poi_files
 from .furniture import Layout, apply_layout, draw_zorders, nice_scale_km  # noqa: F401 (nice_scale_km re-exported)
 from .osm import _roads, admin_areas, first, get_features, get_pois, overview_query_polygon
-from .overview import clean_label, pick_landscape, place_labels
+from .overview import clean_label, pick_landscape, place_labels, place_point_labels
+from .choropleth import build as build_choropleth
 from .layers import draw_layers, layers_bounds, load_layers
 from .runtime import log
 
@@ -52,6 +53,29 @@ def poi_marker_size(span_km):
     return (d_mm * 72 / 25.4) ** 2, d_mm
 
 
+def _make_choropleth(lay, areas, theme, tag, what):
+    """Colour the districts / provinces from the table in lay.choropleth (None when not asked for)."""
+    if lay.choropleth is None:
+        return None
+    if areas is None or len(areas) == 0:
+        log(f"[{tag}] choropleth skipped: no {what} came back from OpenStreetMap")
+        return None
+    names = [r.get("name:en") if isinstance(r.get("name:en"), str) else r.get("name") for _, r in areas.iterrows()]
+    res = build_choropleth(lay.choropleth, [n if isinstance(n, str) else "" for n in names], theme)
+    for line in res.notes:
+        log(line)
+    return res
+
+
+def _flush_labels(ax, sink, avoid, tag):
+    """Place the collected point / feature labels (axes limits are final by now)."""
+    if not sink:
+        return
+    placed, skipped = place_point_labels(ax, sink, avoid=avoid)
+    log(f"[{tag}] {len(placed)} label(s) placed" + (f", {len(skipped)} left out because there was no free space "
+                                                    f"(zoom in or lower the label size)" if skipped else ""))
+
+
 def _basemap_zoom(width_m, lat, zoom):
     if zoom:
         return int(zoom)
@@ -85,7 +109,7 @@ def make_map(city, dpi, landscape, buildings, theme_name, radius_km, out,
         boundary = ox.geocode_to_gdf(f"{city}, Pakistan")
     utm = boundary.estimate_utm_crs()
     bp = boundary.to_crs(utm)
-    size = A0_INCHES[::-1] if pick_landscape(landscape, bp.total_bounds if not radius_km else (0, 0, 1, 1)) else A0_INCHES
+    size, sheet_k, paper = sheet_geometry(lay.paper, pick_landscape(landscape, bp.total_bounds if not radius_km else (0, 0, 1, 1)))
     aspect = axes_aspect(size)
     user_layers = load_layers(layers, utm) if layers else []
     ext = fit_extent(_union_bounds(bp.total_bounds, layers_bounds(user_layers)), aspect, pad=1.08,
@@ -219,9 +243,13 @@ def make_map(city, dpi, landscape, buildings, theme_name, radius_km, out,
         raise ValueError(f"unknown map type '{map_type}'")
 
     poi_handles = []
+    label_sink = []                      # names of receptors and of your layers: placed together, without overlaps
     poi_s, poi_mm = poi_marker_size(span_km)
+    poi_r_pt = math.sqrt(poi_s) / 2
+    poi_points = ([(x, y, poi_r_pt) for x, y in zip(poi_gdf.geometry.x, poi_gdf.geometry.y)]
+                  if poi_gdf is not None and not poi_gdf.empty else [])
     if poi_gdf is not None and not poi_gdf.empty:
-        log(f"[{tag}] receptor markers {poi_mm:.1f} mm on the sheet "
+        log(f"[{tag}] receptor markers {poi_mm * sheet_k:.1f} mm on the {paper} sheet "
               f"(about {poi_mm / (AXES_RECT[2] * size[0] * 25.4) * (ext[1] - ext[0]):.0f} m on the ground)")
         from matplotlib import patheffects
         from matplotlib.lines import Line2D
@@ -238,12 +266,14 @@ def make_map(city, dpi, landscape, buildings, theme_name, radius_km, out,
             if poi_labels:
                 for _, r_ in sub_.iterrows():
                     if r_["name"]:
-                        ax.annotate(r_["name"], (r_.geometry.x, r_.geometry.y), xytext=(0, 30),
-                                    textcoords="offset points", fontsize=22, ha="center",
-                                    color=t["text"], zorder=Z["labels"],
-                                    path_effects=[patheffects.withStroke(linewidth=6, foreground=t["bg"])])
+                        label_sink.append(dict(text=str(r_["name"]), x=r_.geometry.x, y=r_.geometry.y, size=22,
+                                               gap=poi_r_pt + 4, marker_r=poi_r_pt, prio=-len(str(r_["name"])),
+                                               kw=dict(color=t["text"], zorder=Z["labels"],
+                                                       path_effects=[patheffects.withStroke(linewidth=6, foreground=t["bg"])])))
 
-    user_handles = draw_layers(ax, user_layers, t, zorder=Z["your_data"], label_zorder=Z["labels"] + 0.3)
+    user_handles = draw_layers(ax, user_layers, t, zorder=Z["your_data"], label_zorder=Z["labels"] + 0.3, base_zorder=Z["basemap"] + 0.5,
+                               label_sink=label_sink)
+    _flush_labels(ax, label_sink, poi_points, tag)
 
     if mask:  # blank everything outside the district and outline it
         outside = box(ext[0], ext[2], ext[1], ext[3]).difference(bp.geometry.iloc[0])
@@ -265,13 +295,13 @@ def make_map(city, dpi, landscape, buildings, theme_name, radius_km, out,
         credit += "  |  Imagery \u00a9 Esri, Maxar, Earthstar Geographics"
     elif map_type == "topo":
         credit += "  |  Style \u00a9 OpenTopoMap (CC-BY-SA)"
-    apply_layout(fig, ax, ext, t, size, utm, lay,
+    apply_layout(fig, ax, ext, t, size, utm, lay, sheet_k=sheet_k,
                  title=city.upper(), subtitle=f"{sub}   |   {abs(c.y):.4f}\u00b0N  {abs(c.x):.4f}\u00b0E{kind}",
                  credit=credit, y_title=1 - margin_top / 2 + 0.008, y_sub=1 - margin_top + 0.02,
                  y_credit=margin_bot / 2, land_entries=legend, poi_handles=poi_handles, user_handles=user_handles)
 
     log(f"[{tag}] saving (this can take a few minutes)...")
-    paths = save_outputs(fig, ax, out, dpi, formats, utm, ext, t["bg"], tag, tiff_furniture=lay.tiff_furniture)
+    paths = save_outputs(fig, ax, out, dpi, formats, utm, ext, t["bg"], tag, tiff_furniture=lay.tiff_furniture, sheet_k=sheet_k)
     if poi_data and poi_gdf is not None:
         paths += write_poi_files(poi_gdf, os.path.splitext(out)[0], poi_formats,
                                  counts={k: int((poi_gdf["category"] == k).sum()) for k in pois})
@@ -287,7 +317,7 @@ def make_province_map(prov, dpi, landscape, theme_name, out, formats=("png",), l
     utm = boundary.estimate_utm_crs()
     bp = boundary.to_crs(utm)
     user_layers = load_layers(layers, utm) if layers else []
-    size = A0_INCHES[::-1] if pick_landscape(landscape, bp.total_bounds) else A0_INCHES
+    size, sheet_k, paper = sheet_geometry(lay.paper, pick_landscape(landscape, bp.total_bounds))
     aspect = axes_aspect(size)
     ext = fit_extent(_union_bounds(bp.total_bounds, layers_bounds(user_layers)), aspect, pad=1.06)
     prov_poly_wgs = overview_query_polygon(boundary.geometry.iloc[0])
@@ -297,6 +327,8 @@ def make_province_map(prov, dpi, landscape, theme_name, out, formats=("png",), l
     d = d.to_crs(utm) if not d.empty else d
     if not d.empty:
         d = d[d.geometry.representative_point().within(bp.geometry.iloc[0])]
+
+    choro = _make_choropleth(lay, d, t, prov, "districts")
 
     log(f"[{prov}] downloading highways (motorway/trunk/primary)...")
     try:
@@ -321,6 +353,8 @@ def make_province_map(prov, dpi, landscape, theme_name, out, formats=("png",), l
     Z = draw_zorders(lay.draw_order)
     log(f"[{prov}] draw order (bottom -> top): {' < '.join(lay.draw_order)}")
     bp.plot(ax=ax, color=t["green"], linewidth=0, zorder=Z["landuse"])
+    if choro is not None:
+        d.plot(ax=ax, color=choro.colors, linewidth=0, alpha=0.9, zorder=Z["landuse"] + 0.2)
     if not d.empty:
         d.boundary.plot(ax=ax, color=t["frame"], linewidth=2, linestyle="--", alpha=0.7, zorder=Z["boundaries"])
     if not rivers.empty:
@@ -340,25 +374,32 @@ def make_province_map(prov, dpi, landscape, theme_name, out, formats=("png",), l
     for s in ax.spines.values():
         s.set_visible(False)
 
-    user_handles = draw_layers(ax, user_layers, t, zorder=Z["your_data"], label_zorder=Z["labels"] + 0.3)
+    sink = []
+    user_handles = draw_layers(ax, user_layers, t, zorder=Z["your_data"], label_zorder=Z["labels"] + 0.3, base_zorder=Z["basemap"] + 0.5, label_sink=sink)
+    _flush_labels(ax, sink, (), "layers")
+    if choro is not None:
+        user_handles = choro.handles + list(user_handles)
     ax.set_xlim(ext[0], ext[1])
     ax.set_ylim(ext[2], ext[3])
     if not d.empty:   # district names last, after the extent is final, so collisions are measured correctly
         items = []
-        for _, r in d.iterrows():
+        for k, (_, r) in enumerate(d.iterrows()):
             nm = clean_label(r.get("name:en") if isinstance(r.get("name:en"), str) else r.get("name"))
             if nm:
+                if choro is not None and lay.choropleth.show_values and k in choro.text:
+                    nm = f"{nm}\n{choro.text[k]}"
                 pt = r.geometry.representative_point()
                 items.append((nm, pt.x, pt.y, r.geometry.area))
         _, skipped = place_labels(ax, items, color=t["text"], alpha=0.9, zorder=Z["labels"],
-                                  bbox=dict(boxstyle="round,pad=0.15", fc=t["bg"], ec="none", alpha=0.55))
+                                  bbox=dict(boxstyle="round,pad=0.15", fc=t["bg"], ec="none",
+                                            alpha=0.8 if choro is not None else 0.55))   # dark classes need a plate
         if skipped:
             log(f"[{prov}] {len(skipped)} district name(s) left out (no room): {', '.join(skipped)}")
-    apply_layout(fig, ax, ext, t, size, utm, lay, title=prov.upper(), user_handles=user_handles,
+    apply_layout(fig, ax, ext, t, size, utm, lay, sheet_k=sheet_k, title=prov.upper(), user_handles=user_handles,
                  subtitle="DISTRICTS, HIGHWAYS & RIVERS   |   PAKISTAN",
                  credit="Map data \u00a9 OpenStreetMap contributors", y_title=0.955, y_sub=0.915, y_credit=0.02)
     log(f"[{prov}] saving...")
-    return save_outputs(fig, ax, out, dpi, formats, utm, ext, t["bg"], prov, tiff_furniture=lay.tiff_furniture)
+    return save_outputs(fig, ax, out, dpi, formats, utm, ext, t["bg"], prov, tiff_furniture=lay.tiff_furniture, sheet_k=sheet_k)
 
 
 
@@ -375,7 +416,7 @@ def make_country_map(dpi, landscape, theme_name, out, formats=("png",), country=
     boundary = ox.geocode_to_gdf(country)
     bp = boundary.to_crs(32642)  # UTM 42N: central zone for Pakistan (country spans zones 41-43)
     utm = bp.crs
-    size = A0_INCHES[::-1] if pick_landscape(landscape, bp.total_bounds) else A0_INCHES
+    size, sheet_k, paper = sheet_geometry(lay.paper, pick_landscape(landscape, bp.total_bounds))
     aspect = axes_aspect(size)
     user_layers = load_layers(layers, utm) if layers else []
     ext = fit_extent(_union_bounds(bp.total_bounds, layers_bounds(user_layers)), aspect, pad=1.05)
@@ -386,6 +427,8 @@ def make_country_map(dpi, landscape, theme_name, out, formats=("png",), country=
     pr = pr.to_crs(utm) if not pr.empty else pr
     if not pr.empty:
         pr = pr[pr.geometry.representative_point().within(bp.geometry.iloc[0])]
+
+    choro = _make_choropleth(lay, pr, t, tag, "provinces")
 
     log(f"[{tag}] downloading motorways / trunk roads (can take a while)...")
     try:
@@ -415,16 +458,21 @@ def make_country_map(dpi, landscape, theme_name, out, formats=("png",), country=
         pr = pr.reset_index(drop=True)
         for i, r_ in pr.iterrows():
             gpd.GeoSeries([r_.geometry], crs=utm).plot(
-                ax=ax, color=PROVINCE_TINTS[i % len(PROVINCE_TINTS)], alpha=0.6, linewidth=0, zorder=Z["landuse"] + 0.1)
+                ax=ax, color=choro.colors[i] if choro is not None else PROVINCE_TINTS[i % len(PROVINCE_TINTS)],
+                alpha=0.9 if choro is not None else 0.6, linewidth=0, zorder=Z["landuse"] + 0.1)
         pr.boundary.plot(ax=ax, color=t["frame"], linewidth=3, linestyle="--", zorder=Z["boundaries"])
         items = []
-        for _, r_ in pr.iterrows():
+        for k, (_, r_) in enumerate(pr.iterrows()):
             nm = clean_label(r_.get("name:en") if isinstance(r_.get("name:en"), str) else r_.get("name"), drop=())
             if nm:
+                if choro is not None and lay.choropleth.show_values and k in choro.text:
+                    nm = f"{nm}\n{choro.text[k]}"
                 pt = r_.geometry.representative_point()
                 items.append((nm, pt.x, pt.y, r_.geometry.area))
         _, skipped = place_labels(ax, items, sizes=(62, 48, 36, 26), fontweight="bold", color=t["text"],
-                                  alpha=0.85, zorder=Z["labels"])
+                                  alpha=0.85, zorder=Z["labels"],
+                                  **({"bbox": dict(boxstyle="round,pad=0.15", fc=t["bg"], ec="none", alpha=0.8)}
+                                     if choro is not None else {}))
         if skipped:
             log(f"[{tag}] left out (no room): {', '.join(skipped)}")
     if not rivers.empty:
@@ -443,12 +491,16 @@ def make_country_map(dpi, landscape, theme_name, out, formats=("png",), country=
     for s in ax.spines.values():
         s.set_visible(False)
 
-    user_handles = draw_layers(ax, user_layers, t, zorder=Z["your_data"], label_zorder=Z["labels"] + 0.3)
+    sink = []
+    user_handles = draw_layers(ax, user_layers, t, zorder=Z["your_data"], label_zorder=Z["labels"] + 0.3, base_zorder=Z["basemap"] + 0.5, label_sink=sink)
+    _flush_labels(ax, sink, (), "layers")
+    if choro is not None:
+        user_handles = choro.handles + list(user_handles)
     ax.set_xlim(ext[0], ext[1])
     ax.set_ylim(ext[2], ext[3])
-    apply_layout(fig, ax, ext, t, size, utm, lay, user_handles=user_handles, title=country.upper(), subtitle="PROVINCES, MOTORWAYS & RIVERS",
+    apply_layout(fig, ax, ext, t, size, utm, lay, sheet_k=sheet_k, user_handles=user_handles, title=country.upper(), subtitle="PROVINCES, MOTORWAYS & RIVERS",
                  credit="Map data \u00a9 OpenStreetMap contributors  |  Boundaries as mapped in OpenStreetMap; "
                         "verify against official sources (Survey of Pakistan) for official use",
                  y_title=0.955, y_sub=0.915, y_credit=0.02, fs_title=150, fs_sub=44, fs_credit=24)
     log(f"[{tag}] saving...")
-    return save_outputs(fig, ax, out, dpi, formats, utm, ext, t["bg"], tag, tiff_furniture=lay.tiff_furniture)
+    return save_outputs(fig, ax, out, dpi, formats, utm, ext, t["bg"], tag, tiff_furniture=lay.tiff_furniture, sheet_k=sheet_k)

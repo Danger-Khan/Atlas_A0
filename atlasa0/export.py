@@ -10,7 +10,19 @@ from .config import FORMAT_ALIASES
 from .runtime import log
 
 
-def _save_geotiff(fig, ax, path, dpi, utm, ext, facecolor):
+def _save_geotiff(fig, ax, path, dpi, utm, ext, facecolor, meta_dpi=None):
+    """Wrapper: lifts Pillow's decompression-bomb limit ONLY while re-reading our own TIFF, then restores it
+    (so user logos and other images opened later keep the protection)."""
+    from PIL import Image
+    old = Image.MAX_IMAGE_PIXELS
+    Image.MAX_IMAGE_PIXELS = None
+    try:
+        return _save_geotiff_inner(fig, ax, path, dpi, utm, ext, facecolor, meta_dpi)
+    finally:
+        Image.MAX_IMAGE_PIXELS = old
+
+
+def _save_geotiff_inner(fig, ax, path, dpi, utm, ext, facecolor, meta_dpi=None):
     """Save ONLY the map area (no title/margins) as a georeferenced TIFF for ArcMap/QGIS.
 
     Georeferencing = world file (.tfw) + projection (.prj) next to the .tif, which ArcMap reads
@@ -18,7 +30,6 @@ def _save_geotiff(fig, ax, path, dpi, utm, ext, facecolor):
     CRS is the UTM zone of the region (metres)."""
     from matplotlib.transforms import Bbox
     from PIL import Image
-    Image.MAX_IMAGE_PIXELS = None
 
     ax.apply_aspect()
     pos = ax.get_position()
@@ -29,7 +40,7 @@ def _save_geotiff(fig, ax, path, dpi, utm, ext, facecolor):
 
     with Image.open(path) as im:  # drop the alpha band -> plain 3-band RGB (cleaner in ArcMap)
         rgb = im.convert("RGB")
-    rgb.save(path, compression="tiff_lzw", dpi=(dpi, dpi))
+    rgb.save(path, compression="tiff_lzw", dpi=(meta_dpi or dpi, meta_dpi or dpi))
     w, h = rgb.size
     del rgb
     px, py =(ext[1] - ext[0]) / w, (ext[3] - ext[2]) / h
@@ -53,13 +64,15 @@ def _save_geotiff(fig, ax, path, dpi, utm, ext, facecolor):
                            crs=utm.to_wkt(), transform=from_origin(ext[0], ext[3], px, py),
                            compress="lzw", photometric="RGB", BIGTIFF="IF_SAFER") as dst:
             dst.write(arr.transpose(2, 0, 1))
-    except Exception:
-        pass  # sidecar files still georeference it
+    except Exception as e:
+        log(f"TIFF georeference embed skipped ({type(e).__name__}); the .tfw/.prj sidecar files still georeference it.")
     return path
 
 
-def save_outputs(fig, ax, out, dpi, formats, utm, ext, facecolor, tag, tiff_furniture=False):
-    """Write the requested formats; returns the list of files created (png and/or tif)."""
+def save_outputs(fig, ax, out, dpi, formats, utm, ext, facecolor, tag, tiff_furniture=False, sheet_k=1.0):
+    """Write the requested formats; returns the list of files created (png and/or tif).
+    dpi = real print resolution on the chosen paper; the A0-proportioned figure is saved at dpi x sheet_k."""
+    render_dpi = dpi * sheet_k
     base = os.path.splitext(out)[0]
     fmts = {FORMAT_ALIASES[f.lower()] for f in formats}
     paths = []
@@ -68,13 +81,13 @@ def save_outputs(fig, ax, out, dpi, formats, utm, ext, facecolor, tag, tiff_furn
     ax.set_xlabel("")
     ax.set_ylabel("")
     if "png" in fmts:
-        fig.savefig(base + ".png", dpi=dpi, facecolor=facecolor)
+        fig.savefig(base + ".png", dpi=render_dpi, facecolor=facecolor, pil_kwargs={"dpi": (dpi, dpi)})
         paths.append(base + ".png")
     if "tiff" in fmts:
         if not tiff_furniture:  # keep the GIS raster clean: no legends / scale / north / grid burnt in
             for art in getattr(fig, "_atlasa0_furniture", []):
                 art.set_visible(False)
-        paths.append(_save_geotiff(fig, ax, base + ".tif", dpi, utm, ext, facecolor))
+        paths.append(_save_geotiff(fig, ax, base + ".tif", render_dpi, utm, ext, facecolor, meta_dpi=dpi))
     plt.close(fig)
     for pth in paths:
         log(f"[{tag}] done -> {pth}")

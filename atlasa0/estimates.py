@@ -11,9 +11,10 @@ Nothing here touches the network.
 import json
 import os
 
-from .config import A0_INCHES, AXES_RECT
+from .config import A0_INCHES, AXES_RECT, paper_area_ratio, sheet_geometry
 
 DPI_MIN, DPI_MAX = 50, 500
+PREVIEW_DPI = DPI_MIN          # "Preview first": same map, lowest resolution, PNG only
 MAP_AREA_FRACTION = AXES_RECT[2] * AXES_RECT[3]   # GeoTIFF = map area only (no title/margins)
 
 # --- starting guesses (replaced by your own measurements after the first runs) -----------------
@@ -67,10 +68,11 @@ def _growth(map_type, dpi):
     return (dpi / 300.0) ** (2.0 if map_type in PHOTO_TYPES else 1.4)
 
 
-def record_file(map_type, fmt, path, dpi, landscape=False):
-    """After a real run: remember the file size (normalised to 300 dpi) of a PNG/TIFF just written."""
+def record_file(map_type, fmt, path, dpi, landscape=False, paper="A0"):
+    """After a real run: remember the file size (normalised to an A0 sheet at 300 dpi) of a PNG/TIFF just written."""
     try:
-        _remember("mb_at_300dpi", f"{fmt}:{map_type}", os.path.getsize(path) / 1e6 / _growth(map_type, dpi))
+        _remember("mb_at_300dpi", f"{fmt}:{map_type}",
+                  os.path.getsize(path) / 1e6 / _growth(map_type, dpi) / paper_area_ratio(paper))
     except Exception:
         pass
 
@@ -93,19 +95,20 @@ def folder_mb(path):
 
 
 # ------------------------------------------------------------------------------- estimates
-def sheet_pixels(dpi, landscape=False):
+def sheet_pixels(dpi, landscape=False, paper="A0"):
+    """Pixels of the whole sheet. "auto" orientation: decided per map; same pixel count."""
     land = landscape is True or (isinstance(landscape, str) and landscape.lower() == "landscape")
-    w, h = (A0_INCHES[::-1] if land else A0_INCHES)       # "auto": decided per map; same pixel count
-    return round(w * dpi), round(h * dpi)
+    size, k, _ = sheet_geometry(paper, land)
+    return round(size[0] * k * dpi), round(size[1] * k * dpi)
 
 
-def file_mb(map_type, fmt, dpi, landscape=False):
+def file_mb(map_type, fmt, dpi, landscape=False, paper="A0"):
     """(megabytes, measured?) for one output file."""
     m = _measured("mb_at_300dpi", f"{fmt}:{map_type}")
     if m is not None:
-        return m * _growth(map_type, dpi), True
+        return m * _growth(map_type, dpi) * paper_area_ratio(paper), True
     base = PNG_MB_300.get(map_type, 30) * (MAP_AREA_FRACTION * TIFF_VS_PNG if fmt == "tiff" else 1)
-    return base * _growth(map_type, dpi), False
+    return base * _growth(map_type, dpi) * paper_area_ratio(paper), False
 
 
 def download_mb(level, map_type):
@@ -118,15 +121,15 @@ def download_mb(level, map_type):
     return DOWNLOAD_MB.get(map_type, 30) * LEVEL_FACTOR.get(level, 1.0), False
 
 
-def ram_gb(dpi, landscape=False, tiff=False):
+def ram_gb(dpi, landscape=False, tiff=False, paper="A0"):
     """Peak memory estimate. Drawing + saving a PNG measured ~4.2 bytes/pixel (1.6 GB at 500 dpi, synthetic map);
     a GeoTIFF adds copies of the image (RGBA -> RGB -> optional rasterio array) -> ~12 bytes/pixel;
     plus ~1.5 GB for the OpenStreetMap data and Python itself (more for building footprints of big areas)."""
-    w, h = sheet_pixels(dpi, landscape)
+    w, h = sheet_pixels(dpi, landscape, paper)
     return w * h / 1e6 * (12.0 if tiff else 4.5) / 1000 + 1.5
 
 
-def estimate_calls(calls, dpi, formats, landscape=False):
+def estimate_calls(calls, dpi, formats, landscape=False, paper="A0"):
     """calls: list of (level, map_type). Totals for a whole run."""
     fmts = sorted({"tiff" if f.lower() in ("tif", "tiff", "geotiff") else "png" for f in formats}) or ["png"]
     dl = files = 0.0
@@ -135,7 +138,7 @@ def estimate_calls(calls, dpi, formats, landscape=False):
     for level, mt in calls:
         key = mt if level in ("city", "district") else level
         d, m1 = download_mb(level, key)
-        sizes = {f: file_mb(key, f, dpi, landscape) for f in fmts}
+        sizes = {f: file_mb(key, f, dpi, landscape, paper) for f in fmts}
         dl += d
         files += sum(s for s, _ in sizes.values())
         measured_dl &= m1

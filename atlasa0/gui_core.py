@@ -11,7 +11,8 @@ import os
 import threading
 from dataclasses import asdict, dataclass, field, fields
 
-from .config import (file_stem, A0_INCHES, FORMAT_ALIASES, MAP_TYPES, POI_CATEGORIES, POI_PRESETS, PROVINCES, THEMES,
+from .choropleth import SCHEMES as CHORO_SCHEMES, ChoroplethSpec
+from .config import (file_stem, PAPER_NAMES, parse_paper, A0_INCHES, FORMAT_ALIASES, MAP_TYPES, POI_CATEGORIES, POI_PRESETS, PROVINCES, THEMES,
                      match_province, resolve_pois)
 from matplotlib import colors as _mc
 
@@ -46,6 +47,8 @@ class FormState:
     map_types: list = field(default_factory=lambda: ["street"])
     formats: list = field(default_factory=lambda: ["png"])
     dpi: int = 100
+    paper: str = "A0"                     # "A0".."A4" or "WxH" in mm
+    choropleth: dict = None               # {"file", "name_col", "value_col", "scheme", "classes", "palette", ...}
     theme: str = "light"
     landscape: object = "auto"            # "auto" | "portrait" | "landscape" (True/False still accepted)
     buildings: bool = False
@@ -107,6 +110,7 @@ def describe_options():
         "map_types": MAP_TYPES,
         "formats": ["png", "tiff"],
         "dpi_presets": DPI_PRESETS,
+        "papers": list(PAPER_NAMES),
         "themes": list(THEMES),
         "poi_categories": {k: v["label"] for k, v in POI_CATEGORIES.items()},
         "poi_presets": POI_PRESETS,
@@ -124,7 +128,12 @@ def describe_options():
         "hatches": list(HATCHES),
         "draw_groups": DRAW_GROUPS,
         "default_draw_order": list(DEFAULT_DRAW_ORDER),
-        "layer_file_types": ["shp", "geojson", "json", "gpkg", "kml", "gml", "csv"],
+        "layer_file_types": ["shp", "geojson", "json", "gpkg", "kml", "gml", "csv", "tif", "tiff"],
+        "raster_cmaps": ["viridis", "gray", "terrain", "RdYlGn", "Spectral", "YlOrRd", "Blues", "magma", "coolwarm", "cividis"],
+        "choropleth_schemes": list(CHORO_SCHEMES),
+        "choropleth_palettes": ["YlOrRd", "Blues", "Greens", "Purples", "Oranges", "viridis", "cividis", "RdBu", "Spectral"],
+        "raster_placements": ["overlay", "basemap"],
+        "raster_resamples": ["bilinear", "nearest", "cubic"],
         "defaults": FormState().to_dict(),
     }
 
@@ -147,6 +156,10 @@ def layout_from_state(s):
         d.pop("elements", None)
     if list(s.draw_order or DEFAULT_DRAW_ORDER) != list(DEFAULT_DRAW_ORDER):
         d["draw_order"] = list(s.draw_order)
+    if (s.paper or "A0").strip().upper() != "A0":
+        d["paper"] = s.paper.strip()
+    if s.choropleth and s.choropleth.get("file"):
+        d["choropleth"] = dict(s.choropleth)
     if s.legend_title == "" and "legend_title" not in d:
         d["legend_title"] = ""
     return d or None
@@ -229,6 +242,18 @@ def validate(s):
         p.append(f"Resolution must be between {est.DPI_MIN} and {est.DPI_MAX} dpi.")
     if s.landscape not in (True, False, "auto", "portrait", "landscape"):
         p.append("Orientation must be auto, portrait or landscape.")
+    try:
+        parse_paper(s.paper)
+    except ValueError as e:
+        p.append(str(e))
+    if s.choropleth and s.choropleth.get("file"):
+        try:
+            ChoroplethSpec.from_any(s.choropleth)
+            if not s.provinces and not s.country:
+                p.append("A choropleth shades districts of a province map or provinces of the country map: tick "
+                         "'Whole country' or a province on the Where tab.")
+        except ValueError as e:
+            p.append(str(e))
     if s.theme not in THEMES:
         p.append("Unknown theme.")
     try:
@@ -260,7 +285,7 @@ def validate(s):
     return p
 
 
-def build_jobs(s):
+def build_jobs(s, preview=False):
     """FormState -> (jobs, run_kwargs) for api.run_batch / JobRunner. Raises FormError."""
     probs = validate(s)
     if probs:
@@ -280,7 +305,23 @@ def build_jobs(s):
               poi_data=s.poi_data, poi_formats=list(s.poi_formats), layout=layout_from_state(s),
               layers=layers_to_dicts(s.layers) or None,
               filename=(s.name_template.strip() if s.name_mode == "custom" else None))
+    if preview:
+        kw.update(preview=True, dpi=est.PREVIEW_DPI, formats=["png"], poi_data=False, skip_existing=False)
     return jobs, kw
+
+
+def choropleth_from_fields(file="", name_col="", value_col="", scheme="quantile", classes="5", palette="YlOrRd",
+                           title="", show_values=False):
+    """Form fields -> choropleth dict (None when no table is chosen). Blank / default values are left out."""
+    if not str(file or "").strip():
+        return None
+    d = {"file": str(file).strip(), "name_col": str(name_col).strip(), "value_col": str(value_col).strip(),
+         "scheme": scheme, "classes": int(str(classes).strip() or 5), "palette": palette,
+         "title": str(title).strip(), "show_values": bool(show_values)}
+    out = {k: v for k, v in d.items() if v not in ("", False) and not (k == "scheme" and v == "quantile")
+           and not (k == "classes" and v == 5) and not (k == "palette" and v == "YlOrRd")}
+    out["file"] = d["file"]
+    return out
 
 
 def count_maps(s):
@@ -304,11 +345,15 @@ def map_calls(s):
 
 def estimate(s):
     """Size/memory/download figures to show before running (A0 sheet at the chosen dpi)."""
-    px = est.sheet_pixels(s.dpi, s.landscape)
+    try:
+        paper = parse_paper(s.paper)[0]
+    except ValueError:
+        paper = "A0"          # validate() reports the real problem
+    px = est.sheet_pixels(s.dpi, s.landscape, paper)
     mp = px[0] * px[1] / 1e6
     n_jobs, n_files = count_maps(s)
-    ram = est.ram_gb(s.dpi, s.landscape, tiff=any(f.lower() in ("tif", "tiff", "geotiff") for f in s.formats))
-    sizes = est.estimate_calls(map_calls(s), s.dpi, s.formats or ["png"], s.landscape)
+    ram = est.ram_gb(s.dpi, s.landscape, tiff=any(f.lower() in ("tif", "tiff", "geotiff") for f in s.formats), paper=paper)
+    sizes = est.estimate_calls(map_calls(s), s.dpi, s.formats or ["png"], s.landscape, paper)
     warn = []
     if ram > 6:
         warn.append(f"About {ram:.0f} GB free RAM needed (estimate) - close other programs, or lower the dpi / skip GeoTIFF.")
@@ -316,10 +361,11 @@ def estimate(s):
         warn.append(f"{s.dpi} dpi needs about {ram:.0f} GB free RAM (estimate).")
     if n_jobs > 20:
         warn.append(f"{n_jobs} maps is a long run (minutes each at A0); 'skip existing' lets you resume.")
-    return {"pixels": px, "megapixels": round(mp), "ram_gb": round(ram, 1), "maps": n_jobs,
+    return {"pixels": px, "paper": paper, "megapixels": round(mp), "ram_gb": round(ram, 1), "maps": n_jobs,
             "files": n_files, "warnings": warn, "download_mb": sizes["download_mb"], "files_mb": sizes["files_mb"],
             "download_measured": sizes["download_measured"], "files_measured": sizes["files_measured"],
-            "per_map": sizes["per_map"]}
+            "per_map": sizes["per_map"],
+            "assumed_defaults": not s.map_types or not s.formats}
 
 
 def estimate_text(e):
@@ -327,7 +373,8 @@ def estimate_text(e):
     if not e["maps"]:
         return "Choose something to map to see sizes."
     guess = lambda m: "measured on your PC" if m else "rough guess until your first run"
-    return (f"{e['maps']} map(s), {e['files']} image file(s)  |  A0 {e['pixels'][0]} x {e['pixels'][1]} px "
+    note = "  [nothing ticked on the Map tab: assuming street map + PNG]" if e.get("assumed_defaults") else ""
+    return (f"{e['maps']} map(s), {e['files']} image file(s){note}  |  {e.get('paper', 'A0')} {e['pixels'][0]} x {e['pixels'][1]} px "
             f"({e['megapixels']} MP), about {e['ram_gb']} GB RAM\n"
             f"Download about {est.fmt_mb(e['download_mb'])} ({guess(e['download_measured'])}; much less if already cached)"
             f"  |  Files about {est.fmt_mb(e['files_mb'])} ({guess(e['files_measured'])})")

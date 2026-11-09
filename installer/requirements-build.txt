@@ -1,0 +1,9 @@
+# Author: Imaad Ullah Khan Yameen
+# Email: yameenimaad@gmail.com
+# This code is not for sale.
+# Packages needed on the Windows PC that builds the installer (on top of ../requirements.txt)
+pyinstaller>=6.6
+pyinstaller-hooks-contrib
+rasterio        # GeoTIFF raster layers (embedded in the app)
+contextily      # satellite / topo map types
+openpyxl        # Excel receptor files, choropleth tables

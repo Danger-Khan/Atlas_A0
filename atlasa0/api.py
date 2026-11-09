@@ -62,7 +62,7 @@ def _slug(s):
 def generate_map(region=None, level="city", province=None, map_type="street", formats=("png",),
                  dpi=300, landscape=False, buildings=False, theme="light", radius_km=None,
                  zoom=None, outdir=".", skip_existing=False,
-                 pois=None, poi_labels=False, poi_data=False, poi_formats=("geojson", "csv"), layout=None, layers=None, filename=None):
+                 pois=None, poi_labels=False, poi_data=False, poi_formats=("geojson", "csv"), layout=None, layers=None, filename=None, preview=False):
     """Make one map (in one or more file formats).
 
     level    : "country" | "province" | "district" | "city"
@@ -82,17 +82,28 @@ def generate_map(region=None, level="city", province=None, map_type="street", fo
                (fields {region} {level} {type} {province} {dpi} {date}; no extension - it is added per file type)
     landscape: False / "portrait", True / "landscape", or "auto" (wide area -> landscape, tall area -> portrait)
     layout   : map elements/legends - dict or furniture.Layout: elements (title legend scale north grid credit),
-               title, subtitle, legend_items [[label, colour]], legend_pos, note, logo, grid_km, tiff_furniture
+               title, subtitle, legend_items [[label, colour]], legend_pos, note, logo, grid_km, tiff_furniture,
+               paper ("A0".."A4" or "500x700" in mm; default A0; dpi is the real print resolution on that paper),
+               choropleth {"file": "pop.csv", "name_col", "value_col", "scheme", "classes", "palette", "title",
+               "show_values"} - shades provinces (country map) / districts (province map); see choropleth.py
+    preview  : True = quick look: 50 dpi, PNG only, no receptor files, file name ends with _preview, never skipped.
+               (Drawing and the OpenStreetMap download still happen; what you save is time writing the big image
+               and memory. Downloads are cached, so the real run afterwards re-uses them.)
     Returns a list of {"path","format","level","region","map_type","skipped"}.
     """
     if level not in LEVELS:
         raise ValueError(f"level must be one of {', '.join(LEVELS)}")
     if not est.DPI_MIN <= int(dpi) <= est.DPI_MAX:
         raise ValueError(f"dpi must be between {est.DPI_MIN} and {est.DPI_MAX}")
+    if preview:
+        dpi, formats, poi_data, skip_existing = est.PREVIEW_DPI, ("png",), False, False
     mt = (map_type or "street").lower()
     if level in ("city", "district") and mt not in MAP_TYPES:
         raise ValueError(f"unknown map type '{map_type}'. Options: {', '.join(MAP_TYPES)}")
-    Layout.from_any(layout)  # validate early (before any download)
+    lay0 = Layout.from_any(layout)  # validate early (before any download)
+    paper = lay0.paper
+    if lay0.choropleth is not None and level in ("city", "district"):
+        log(f"[{region}] note: a choropleth only shades provinces (country map) or districts (province map); ignored here")
     layers = [s for s in parse_layers(layers)] or None  # LayerSpec objects; files checked now
     fmts = sorted({FORMAT_ALIASES[f.lower()] for f in formats})
     os.makedirs(outdir, exist_ok=True)
@@ -104,23 +115,25 @@ def generate_map(region=None, level="city", province=None, map_type="street", fo
 
     if level == "country":
         region, mt = region or "Pakistan", "country"
-        stem = f"country_{_slug(region)}_A0_{dpi}dpi"
+        stem = f"country_{_slug(region)}_{paper}_{dpi}dpi"
     elif level == "province":
         region, mt = match_province(region), "province"
-        stem = f"province_{_slug(region)}_A0_{dpi}dpi"
+        stem = f"province_{_slug(region)}_{paper}_{dpi}dpi"
     elif level == "district":
         if not province or not region:
             raise ValueError("level='district' needs region (district) and province")
         province = match_province(province)
-        stem = f"district_{_slug(province)}_{_slug(region)}{suffix}_A0_{dpi}dpi"
+        stem = f"district_{_slug(province)}_{_slug(region)}{suffix}_{paper}_{dpi}dpi"
     else:
         if not region:
             raise ValueError("level='city' needs a region (city name)")
-        stem = f"{_slug(region)}{suffix}_A0_{dpi}dpi"
+        stem = f"{_slug(region)}{suffix}_{paper}_{dpi}dpi"
 
     if filename:
         stem = file_stem(filename, region=_slug(region) if region else "", level=level, province=_slug(province) if province else "",
                          type=mt if level in ("city", "district") else level, dpi=dpi)
+    if preview:
+        stem += "_preview"
     out = os.path.join(outdir, stem + ".png")
     expected = [os.path.join(outdir, stem + (".png" if f == "png" else ".tif")) for f in fmts]
     want_poi_files = poi_data and level in ("city", "district") and (pois or mt == "receptors")
@@ -153,18 +166,18 @@ def generate_map(region=None, level="city", province=None, map_type="street", fo
                          map_type=mt, zoom=zoom, formats=fmts,
                          pois=pois, poi_labels=poi_labels, poi_data=poi_data,
                          poi_formats=poi_formats, layout=layout, layers=layers)
-    _learn_sizes(paths, level, mt, dpi, landscape, cache_dir, cache_before)
+    _learn_sizes([] if preview else paths, level, mt, dpi, landscape, cache_dir, cache_before, paper)
     return result(paths, False)
 
 
-def _learn_sizes(paths, level, mt, dpi, landscape, cache_dir, cache_before):
+def _learn_sizes(paths, level, mt, dpi, landscape, cache_dir, cache_before, paper="A0"):
     """Remember real file sizes and download size so later estimates are measured, not guessed."""
     try:
         for p in paths or []:
             if p.endswith(".png"):
-                est.record_file(mt, "png", p, dpi, landscape)
+                est.record_file(mt, "png", p, dpi, landscape, paper)
             elif p.endswith(".tif"):
-                est.record_file(mt, "tiff", p, dpi, landscape)
+                est.record_file(mt, "tiff", p, dpi, landscape, paper)
         if cache_before is not None:
             est.record_download(level, mt, est.folder_mb(cache_dir) - cache_before)
     except Exception:

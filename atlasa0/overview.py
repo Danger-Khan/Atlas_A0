@@ -107,3 +107,96 @@ def pick_landscape(landscape, bounds):
             return w > h
         return v == "landscape"
     return bool(landscape)
+
+
+# ----------------------------------------------------------------------------------- point / feature labels
+_DIRS = ((0, 1), (1, 0), (-1, 0), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1))   # above first, then around
+
+
+def _box(cx, cy, r):
+    from matplotlib.transforms import Bbox
+    return Bbox.from_extents(cx - r, cy - r, cx + r, cy + r)
+
+
+def place_point_labels(ax, items, shrink=(1.0, 0.85, 0.7), avoid=(), pad_px=None, max_labels=600):
+    """Place labels next to points / features without printing them on top of each other or on markers.
+
+    The axes limits must already be set. For each label (most important first) it tries 8 positions around the
+    anchor (above, right, left, below, then the diagonals) at full size, then slightly smaller, and keeps the first
+    one that stays inside the map, does not touch a label already placed and does not cover another marker.
+    A label with must=True is never dropped: it takes the position that overlaps least.
+
+    items : list of dicts - text, x, y (data coords), size (pt), gap (pt from the anchor; 0 = centred on it),
+            prio (bigger = placed first), must (bool), kw (extra Text kwargs: color, zorder, path_effects ...)
+    avoid : extra (x, y, radius_pt) markers labels must not cover (e.g. every receptor point)
+    Returns (placed_text_objects, skipped_texts)."""
+    fig = ax.figure
+    ax.apply_aspect()
+    renderer = fig.canvas.get_renderer()
+    dpi = fig.dpi
+    pad = pad_px if pad_px is not None else dpi * 0.03
+    axbox = ax.get_window_extent(renderer)
+    to_px = ax.transData.transform
+
+    def marker_box(x, y, r_pt):
+        px, py = to_px((x, y))
+        return _box(px, py, max(r_pt, 1) * dpi / 72)
+
+    marks = [(marker_box(x, y, r), None) for x, y, r in avoid]
+    own = {}
+    for i, it in enumerate(items):
+        own[i] = len(marks)
+        marks.append((marker_box(it["x"], it["y"], it.get("marker_r", it.get("gap", 0) * 0.6)), i))
+
+    order = sorted(range(len(items)), key=lambda i: (-(items[i].get("prio") or 0), i))
+    placed, boxes, skipped = [], [], []
+
+    def clash(bb, me):
+        if any(_overlaps(bb, o, pad) for o in boxes):
+            return True
+        return any(m is not None and who != me and _overlaps(bb, m, 0) for m, who in marks)
+
+    for rank, i in enumerate(order):
+        it = items[i]
+        if rank >= max_labels and not it.get("must"):
+            skipped.append(it["text"])
+            continue
+        gap = float(it.get("gap", 0))
+        dirs = _DIRS if gap else ((0, 0),) + tuple((dx, dy) for dx, dy in _DIRS[:4])
+        g = gap if gap else it["size"] * 0.7
+        best = None            # (overlap area, text artist) for must-show fallback
+        done = False
+        for f in shrink:
+            for dx, dy in dirs:
+                kw = dict(it.get("kw") or {})
+                ha = "left" if dx > 0 else "right" if dx < 0 else "center"
+                va = "bottom" if dy > 0 else "top" if dy < 0 else "center"
+                t = ax.annotate(it["text"], (it["x"], it["y"]), xytext=(dx * g, dy * g), textcoords="offset points",
+                                fontsize=it["size"] * f, ha=ha, va=va, annotation_clip=False, **kw)
+                bb = t.get_window_extent(renderer)
+                inside = bb.x0 >= axbox.x0 and bb.x1 <= axbox.x1 and bb.y0 >= axbox.y0 and bb.y1 <= axbox.y1
+                if inside and not clash(bb, i):
+                    placed.append(t)
+                    boxes.append(bb)
+                    done = True
+                    if best is not None:
+                        best[1].remove()
+                    break
+                if it.get("must"):
+                    area = sum(max(0, min(bb.x1, o.x1) - max(bb.x0, o.x0)) * max(0, min(bb.y1, o.y1) - max(bb.y0, o.y0))
+                               for o in boxes) + (0 if inside else 1e12)
+                    if best is None or area < best[0]:
+                        if best is not None:
+                            best[1].remove()
+                        best = (area, t, bb)
+                        continue
+                t.remove()
+            if done:
+                break
+        if not done:
+            if best is not None:
+                placed.append(best[1])
+                boxes.append(best[2])
+            else:
+                skipped.append(it["text"])
+    return placed, skipped

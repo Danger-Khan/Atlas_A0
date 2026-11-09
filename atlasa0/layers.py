@@ -38,7 +38,9 @@ MARKERS = {
 LINE_STYLES = {"solid": "-", "dashed": "--", "dotted": ":", "dash-dot": "-."}
 HATCHES = {"none": None, "diagonal": "///", "reverse diagonal": "\\\\\\", "cross-hatch": "xxx", "dots": "...",
            "grid": "+++", "horizontal": "---", "vertical": "|||"}
-FILE_TYPES = (".shp", ".geojson", ".json", ".gpkg", ".kml", ".gml", ".csv")
+from .rasters import RASTER_TYPES, check_options, draw_raster, is_raster
+
+FILE_TYPES = (".shp", ".geojson", ".json", ".gpkg", ".kml", ".gml", ".csv") + RASTER_TYPES
 LON_NAMES = ("lon", "lng", "long", "longitude", "x", "easting")
 LAT_NAMES = ("lat", "latitude", "y", "northing")
 MM = 72 / 25.4  # points per millimetre
@@ -67,6 +69,13 @@ class LayerSpec:
     x_col: str = ""                # CSV longitude/easting column (auto-detected)
     y_col: str = ""
     fit: bool = False              # include this layer when choosing the map extent
+    # raster layers (GeoTIFF) only - see rasters.py; `alpha` is the opacity
+    cmap: str = ""                 # colour map for a single band (default viridis)
+    vmin: float = None             # value shown as the first colour (default: 2nd percentile)
+    vmax: float = None             # value shown as the last colour (default: 98th percentile)
+    band: int = 1
+    placement: str = "overlay"     # "overlay" (Your layers step) or "basemap" (under land use / roads)
+    resample: str = "bilinear"     # nearest (classes, land cover) | bilinear | cubic
 
     def __post_init__(self):
         if not self.edge_color:
@@ -100,6 +109,7 @@ class LayerSpec:
                 raise ValueError(f"layer '{self.path}': {f} must be > 0")
         if float(self.edge_width_mm) < 0:
             raise ValueError(f"layer '{self.path}': edge_width_mm must be >= 0")
+        check_options(self)
 
     @property
     def label(self):
@@ -116,7 +126,7 @@ class LayerSpec:
         bad = set(d) - known
         if bad:
             raise ValueError(f"unknown layer option(s): {', '.join(sorted(bad))}")
-        for k in ("alpha", "edge_alpha", "size_mm", "edge_width_mm", "width_mm", "label_size"):
+        for k in ("alpha", "edge_alpha", "size_mm", "edge_width_mm", "width_mm", "label_size", "vmin", "vmax"):
             if d.get(k) in ("", None):
                 d.pop(k, None)
             elif k in d:
@@ -124,6 +134,8 @@ class LayerSpec:
         for k in ("label_halo", "legend", "fit"):
             if k in d:
                 d[k] = _bool(d[k])
+        if "band" in d:
+            d["band"] = int(d["band"]) if str(d["band"]).strip() else 1
         return cls(**d)
 
 
@@ -173,12 +185,17 @@ class Feature:
 class Prepared:
     spec: LayerSpec
     features: list = field(default_factory=list)
+    raster: bool = False           # GeoTIFF layer: read and drawn at draw time, for the final map extent
+    utm: object = None             # map CRS (raster layers)
+    rbounds: tuple = None          # raster bounds in UTM (only kept when spec.fit)
 
     @property
     def count(self):
-        return len(self.features)
+        return 1 if self.raster else len(self.features)
 
     def kinds(self):
+        if self.raster:
+            return {"raster": 1}
         out = {}
         for f in self.features:
             out[f.kind] = out.get(f.kind, 0) + 1
@@ -186,6 +203,8 @@ class Prepared:
 
     @property
     def bounds(self):
+        if self.raster:
+            return self.rbounds
         xs, ys = [], []
         for f in self.features:
             for a in _all_arrays(f):
@@ -245,10 +264,15 @@ def prepare_features(geoms, labels, spec):
 
 def load_layer(spec, utm):
     """Read the file, reproject to the map's UTM zone and return Prepared. Needs geopandas (not at import time)."""
+    ext = os.path.splitext(spec.path)[1].lower()
+    if is_raster(spec.path):
+        from .rasters import bounds_utm
+        rb = bounds_utm(spec.path, utm)          # also checks rasterio and the CRS now, before any download
+        log(f"[layers] {spec.label}: raster layer ({spec.placement})")
+        return Prepared(spec, [], raster=True, utm=utm, rbounds=rb if spec.fit else None)
     import geopandas as gpd
     import pandas as pd
 
-    ext = os.path.splitext(spec.path)[1].lower()
     if ext == ".csv":
         df = pd.read_csv(spec.path, encoding="utf-8-sig")
         low = {c.lower().strip(): c for c in df.columns}
@@ -315,9 +339,11 @@ def effective_alpha(spec, kinds):
     return 0.4 if kinds.get("polygon") and len(kinds) == 1 else 1.0
 
 
-def draw_layer(ax, prep, theme, zorder=9.0, label_zorder=None):
+def draw_layer(ax, prep, theme, zorder=9.0, label_zorder=None, label_sink=None):
     """Draw one prepared layer; returns (legend handle or None)."""
     s = prep.spec
+    if prep.raster:
+        return draw_raster(ax, prep, zorder)
     kinds = prep.kinds()
     a = effective_alpha(s, kinds)
     edge_w = s.edge_width_mm * MM
@@ -353,7 +379,13 @@ def draw_layer(ax, prep, theme, zorder=9.0, label_zorder=None):
         fx = [patheffects.withStroke(linewidth=6, foreground=theme["bg"])] if s.label_halo else []
         dy = (s.size_mm * MM * 0.7 + 4) if pts and not polys and not lines else 0
         for f in prep.features:
-            if f.label and f.label_xy:
+            if f.label and f.label_xy and label_sink is not None:
+                # placed later, once the axes limits are known, so labels can avoid each other (overview.place_point_labels)
+                label_sink.append(dict(text=str(f.label), x=f.label_xy[0], y=f.label_xy[1], size=s.label_size, gap=dy,
+                                       marker_r=(s.size_mm * MM * 0.5) if dy else 0, prio=1,
+                                       kw=dict(color=col, zorder=zorder + 0.3 if label_zorder is None else label_zorder,
+                                               path_effects=fx)))
+            elif f.label and f.label_xy:
                 ax.annotate(f.label, f.label_xy, xytext=(0, dy), textcoords="offset points", fontsize=s.label_size,
                             ha="center", va="bottom" if dy else "center", color=col, zorder=zorder + 0.3 if label_zorder is None else label_zorder,
                             path_effects=fx, clip_on=True)
@@ -378,14 +410,17 @@ def legend_handle(prep, alpha):
                   markeredgewidth=2, label=s.label)
 
 
-def draw_layers(ax, prepared, theme, zorder=9.0, label_zorder=None):
+def draw_layers(ax, prepared, theme, zorder=9.0, label_zorder=None, label_sink=None, base_zorder=None):
     """Draw all layers in list order: the first is at the bottom, the last on top. They share the band
     zorder .. zorder + 0.9 (the "your_data" place in the draw order); their names go to label_zorder."""
     handles = []
     step = 0.85 / max(1, len(prepared))
     for i, prep in enumerate(prepared):
-        h = draw_layer(ax, prep, theme, zorder=zorder + i * step,
-                       label_zorder=None if label_zorder is None else label_zorder + i * 0.01)
+        z = zorder + i * step
+        if prep.raster and prep.spec.placement == "basemap" and base_zorder is not None:
+            z = base_zorder + i * 0.001            # under land use, water and roads
+        h = draw_layer(ax, prep, theme, zorder=z,
+                       label_zorder=None if label_zorder is None else label_zorder + i * 0.01, label_sink=label_sink)
         if h is not None:
             handles.append(h)
     return handles

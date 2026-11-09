@@ -9,12 +9,12 @@ import osmnx as ox
 
 import pandas as pd
 
-from .config import POI_CATEGORIES, PROVINCE_QUERY
+from .config import POI_CATEGORIES, PROVINCE_QUERY, cache_dir
 from .runtime import log
 
 ox.settings.use_cache = True
 ox.settings.log_console = False
-ox.settings.cache_folder = os.environ.get("ATLASA0_CACHE", "cache")
+ox.settings.cache_folder = cache_dir()  # absolute and writable (see config.cache_dir)
 
 
 def overview_query_polygon(geom, tol=0.005):

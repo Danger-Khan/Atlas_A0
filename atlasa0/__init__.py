@@ -8,6 +8,7 @@ from .config import MAP_TYPES, POI_CATEGORIES, POI_PRESETS, PROVINCES
 __all__ = ["generate_map", "run_batch", "list_districts", "find_receptors", "export_receptors",
            "MAP_TYPES", "POI_CATEGORIES", "POI_PRESETS", "PROVINCES"]
 
+__version__ = "1.1.0"
 __author__ = "Imaad Ullah Khan Yameen"
 __email__ = "yameenimaad@gmail.com"
 __license__ = "This code is not for sale"

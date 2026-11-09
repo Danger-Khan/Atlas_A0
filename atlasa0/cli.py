@@ -63,12 +63,19 @@ def build_parser():
                         "(fields: {region} {level} {type} {province} {dpi} {date}; no extension). Default: automatic names")
     p.add_argument("--skip-existing", action="store_true",
                    help="Don't redo maps whose files already exist (resume a long bulk run)")
+    p.add_argument("--preview", action="store_true",
+                   help="Quick look: 50 dpi PNG only, files end with _preview (ignores --dpi / --format / --skip-existing)")
     p.add_argument("--dry-run", action="store_true", help="Show what would be made, download nothing")
     p.add_argument("--manifest", metavar="FILE", help="Write a JSON list of files produced/failed")
     p.add_argument("--zoom", type=int, default=None,
                    help="tile zoom for satellite/topo (default: auto, ~10,000 px wide; max 17)")
     p.add_argument("--dpi", type=int, default=int(os.environ.get("ATLASA0_DPI", 300)),
                    help="Resolution 50-500; default $ATLASA0_DPI or 300 (200 on low-memory PCs; 400-500 needs a lot of RAM)")
+    p.add_argument("--paper", default=None, metavar="SIZE",
+                   help="Paper size: A0 (default), A1, A2, A3, A4 or WxH in mm, e.g. 500x700. --dpi is the print resolution on that paper")
+    p.add_argument("--choropleth", default=None, metavar="SPEC",
+                   help='Shade provinces (country map) or districts (province map) from a table: "data.csv;name_col=District;'
+                        'value_col=Population;classes=5;palette=YlOrRd;title=Population;show_values=1"')
     p.add_argument("--landscape", action="store_true", help="Same as --orientation landscape")
     p.add_argument("--orientation", choices=["auto", "portrait", "landscape"], default=None,
                    help="Sheet orientation. auto (default) = landscape for wide areas, portrait for tall ones "
@@ -141,7 +148,12 @@ def main(argv=None):
             print(f"{k:10s} {v}")
         return 0
     if a.about:
-        print("AtlasA0\nAuthor: Imaad Ullah Khan Yameen\nEmail: yameenimaad@gmail.com\nThis code is not for sale.")
+        from . import __version__
+        print(f"AtlasA0 {__version__}\nAuthor: Imaad Ullah Khan Yameen\nEmail: yameenimaad@gmail.com\nThis code is not for sale.\n"
+              "Licence: PolyForm Noncommercial 1.0.0 (see LICENSE) - commercial use needs written permission.\n"
+              "Security issues: see SECURITY.md (report privately by email).")
+        from .config import diagnostics
+        print(diagnostics())
         return 0
     if a.gui:
         try:
@@ -201,7 +213,7 @@ def main(argv=None):
               "legend_cols": a.legend_cols, "north_style": a.north_style, "north_pos": a.north_pos,
               "north_size": a.north_size, "scale_style": a.scale_style, "scale_units": a.scale_units,
               "scale_pos": a.scale_pos, "scale_divisions": a.scale_divisions, "labels": a.text_label,
-              "note_pos": a.note_pos, "draw_order": a.draw_order}
+              "note_pos": a.note_pos, "draw_order": a.draw_order, "paper": a.paper, "choropleth": a.choropleth}
     layout = {k: v for k, v in layout.items() if v not in (None, False)}
     try:
         layers = a.layer or None
@@ -272,7 +284,7 @@ def main(argv=None):
                     pois=a.poi, poi_labels=a.poi_labels,
                     poi_data=a.poi_data or bool(a.poi_format),
                     poi_formats=a.poi_format or ("geojson", "csv"), layout=layout or None, layers=layers,
-                    filename=a.name)
+                    filename=a.name, preview=a.preview)
 
     if a.dry_run:
         calls = []
@@ -280,10 +292,11 @@ def main(argv=None):
             lv = j.get("level", "city")
             ts = j.get("types") or types or ["street"]
             calls += [(lv, lv)] if lv in ("country", "province") else [(lv, t) for t in ts]
-        e = est.estimate_calls(calls, a.dpi, a.format, a.landscape)
-        w, h = est.sheet_pixels(a.dpi, a.landscape)
+        paper = Layout.from_any(layout).paper
+        e = est.estimate_calls(calls, a.dpi, a.format, a.landscape, paper)
+        w, h = est.sheet_pixels(a.dpi, a.landscape, paper)
         g = lambda m: "measured" if m else "rough guess"
-        print(f"Estimate: A0 {w} x {h} px, about {est.ram_gb(a.dpi, a.landscape, 'tiff' in [f.lower() for f in a.format]):.1f} GB RAM | "
+        print(f"Estimate: {paper} {w} x {h} px, about {est.ram_gb(a.dpi, a.landscape, 'tiff' in [f.lower() for f in a.format], paper):.1f} GB RAM | "
               f"download about {est.fmt_mb(e['download_mb'])} ({g(e['download_measured'])}, less if cached) | "
               f"files about {est.fmt_mb(e['files_mb'])} ({g(e['files_measured'])})")
 

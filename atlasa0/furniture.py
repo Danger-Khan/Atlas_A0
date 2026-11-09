@@ -26,7 +26,8 @@ from dataclasses import dataclass, field
 from matplotlib import colors as mcolors
 from matplotlib.patches import Circle, Patch, Polygon, Rectangle
 
-from .config import AXES_RECT
+from .choropleth import ChoroplethSpec
+from .config import AXES_RECT, parse_paper
 from .runtime import log
 
 ELEMENTS = {
@@ -199,6 +200,8 @@ class Layout:
     grid_km: float = None
     tiff_furniture: bool = False   # False: keep legends/scale/north/grid OUT of the georeferenced TIFF
     draw_order: list = field(default_factory=lambda: list(DEFAULT_DRAW_ORDER))   # bottom -> top
+    paper: str = "A0"              # A0..A4 or "WxH" in mm (see config.parse_paper)
+    choropleth: object = None      # ChoroplethSpec: shade provinces (country map) / districts (province map) by a table
 
     def z(self, group):
         """zorder base of a map-content group (see DRAW_GROUPS)."""
@@ -212,7 +215,7 @@ class Layout:
         d = dict(spec or {})
         known = {"elements", "title", "subtitle", "legend_items", "legend_pos", "legend_style", "legend_title",
                  "legend_cols", "north_style", "north_pos", "north_size", "scale_style", "scale_units", "scale_pos",
-                 "scale_divisions", "labels", "note", "note_pos", "logo", "grid_km", "tiff_furniture", "draw_order"}
+                 "scale_divisions", "labels", "note", "note_pos", "logo", "grid_km", "tiff_furniture", "draw_order", "paper", "choropleth"}
         unknown = set(d) - known
         if unknown:
             raise ValueError(f"unknown layout option(s): {', '.join(sorted(unknown))}")
@@ -244,7 +247,8 @@ class Layout:
             note=d.get("note"), note_pos=_choice(d, "note_pos", ("lower center", "upper center"), "lower center"),
             logo=d.get("logo"), grid_km=float(gk) if gk is not None else None,
             tiff_furniture=bool(d.get("tiff_furniture", False)),
-            draw_order=parse_draw_order(d.get("draw_order")))
+            draw_order=parse_draw_order(d.get("draw_order")), paper=parse_paper(d.get("paper"))[0],
+            choropleth=ChoroplethSpec.from_any(d["choropleth"]) if d.get("choropleth") else None)
         lay.check_positions()
         return lay
 
@@ -348,14 +352,14 @@ def _tick_labels(ax, art, t, x0, y, length, divisions, bar_u, unit, fs=36):
                            color=t["text"], zorder=FURNITURE_Z))
 
 
-def draw_scale(fig, ax, ext, t, size, style="bar", units="km", pos="lower left", divisions=4):
+def draw_scale(fig, ax, ext, t, size, style="bar", units="km", pos="lower left", divisions=4, sheet_k=1.0, paper="A0"):
     """Scale bar in a corner. styles: bar, line, double (km + miles), ratio (text only). Returns (bar_units, ratio)."""
     w, h = ext[1] - ext[0], ext[3] - ext[2]
     unit_m = SCALE_UNITS[units]
     bar_u = nice_scale_km(w / unit_m)
     bar_m = bar_u * unit_m
-    ratio = print_scale_ratio(w, size[0])
-    ratio_txt = f"Scale 1:{ratio:,} when printed at A0"
+    ratio = print_scale_ratio(w, size[0] * sheet_k)
+    ratio_txt = f"Scale 1:{ratio:,} when printed at {paper}"
     other = "mi" if units != "mi" else "km"
     bar2_u = nice_scale_km(w / SCALE_UNITS[other]) if style == "double" else None
     bar2_m = bar2_u * SCALE_UNITS[other] if style == "double" else 0
@@ -542,7 +546,7 @@ def draw_credit(fig, text, t, y=0.02, fs=26):
     fig.text(0.5, y, text, ha="center", va="center", fontsize=fs, color=t["text"])
 
 
-def apply_layout(fig, ax, ext, t, size, utm, lay, *, title, subtitle, credit, y_title, y_sub, y_credit,
+def apply_layout(fig, ax, ext, t, size, utm, lay, *, sheet_k=1.0, title, subtitle, credit, y_title, y_sub, y_credit,
                  fs_title=130, fs_sub=40, fs_credit=26, land_entries=(), poi_handles=(), user_handles=(),
                  projector=None):
     """Draw every enabled element. `title`/`subtitle`/`credit` are the defaults of the map; the layout overrides."""
@@ -551,7 +555,8 @@ def apply_layout(fig, ax, ext, t, size, utm, lay, *, title, subtitle, credit, y_
         zone = getattr(utm, "name", "UTM")
         credit = f"{credit}  |  Grid: {zone}, every {step:g} km (labels in km)"
     if lay.has("scale"):
-        draw_scale(fig, ax, ext, t, size, lay.scale_style, lay.scale_units, lay.scale_pos, lay.scale_divisions)
+        draw_scale(fig, ax, ext, t, size, lay.scale_style, lay.scale_units, lay.scale_pos, lay.scale_divisions,
+                   sheet_k=sheet_k, paper=lay.paper)
     if lay.has("north"):
         draw_north(fig, ax, ext, t, lay.north_style, lay.north_pos, lay.north_size)
     if lay.has("legend") or poi_handles:
